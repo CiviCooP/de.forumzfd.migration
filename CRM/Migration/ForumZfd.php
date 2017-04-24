@@ -7,11 +7,10 @@
  * @date 1 March 2017
  * @license AGPL-3.0
  */
-abstract class CRM_Migratie_ForumZfd {
+abstract class CRM_Migration_ForumZfd {
+
   protected $_logger = NULL;
   protected $_sourceData = array();
-  protected $_insertClauses = array();
-  protected $_insertParams = array();
   protected $_entity = NULL;
 
   /**
@@ -58,7 +57,18 @@ abstract class CRM_Migratie_ForumZfd {
    * @access private
    */
   private function entityCanBeMigrated($entity) {
-    $validEntities = array('address', 'contact', 'email', 'entity_tag', 'note', 'phone', 'relationship', 'membership', 'website');
+    $validEntities = array(
+      'address',
+      'contact',
+      'email',
+      'employer',
+      'entity_tag',
+      'membership',
+      'note',
+      'option_value',
+      'phone',
+      'relationship',
+      'website');
     if (!in_array($entity, $validEntities)) {
       return FALSE;
     } else {
@@ -70,11 +80,6 @@ abstract class CRM_Migratie_ForumZfd {
    * Abstract method to migrate incoming data
    */
   abstract function migrate();
-
-  /**
-   * Abstract method to set the insert clauses and params
-   */
-  abstract function setClausesAndParams();
 
   /**
    * Abstract Method to validate if source data is good enough

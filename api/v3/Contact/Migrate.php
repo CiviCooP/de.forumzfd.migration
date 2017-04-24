@@ -17,18 +17,20 @@ function civicrm_api3_contact_Migrate($params) {
   $entity = 'contact';
   $createCount = 0;
   $logCount = 0;
-  $logger = new CRM_Migratie_Logger($entity);
+  $logger = new CRM_Migration_Logger($entity);
   $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_contact WHERE is_processed = 0 ORDER BY id LIMIT 1000');
   while ($daoSource->fetch()) {
-    $civiContact = new CRM_Migratie_Contact($entity, $daoSource, $logger);
+    $civiContact = new CRM_Migration_Contact($entity, $daoSource, $logger);
     $newContact = $civiContact->migrate();
     if ($newContact == FALSE) {
       $logCount++;
+      $updateQuery = 'UPDATE forumzfd_contact SET is_processed = %1 WHERE id = %2';
+      CRM_Core_DAO::executeQuery($updateQuery, array(1 => array(1, 'Integer'), 2 => array($daoSource->id, 'Integer')));
     } else {
       $createCount++;
+      $updateQuery = 'UPDATE forumzfd_contact SET is_processed = %1, new_contact_id = %2 WHERE id = %3';
+      CRM_Core_DAO::executeQuery($updateQuery, array(1 => array(1, 'Integer'), 2 => array($newContact['id'], 'Integer'), 3 => array($daoSource->id, 'Integer')));
     }
-    $updateQuery = 'UPDATE forumzfd_contact SET is_processed = %1 WHERE id = %2';
-    CRM_Core_DAO::executeQuery($updateQuery, array(1 => array(1, 'Integer'), 2 => array($daoSource->id, 'Integer')));
   }
   // set max contact id + 1 as the auto increment key for contact_id
   $maxId = CRM_Core_DAO::singleValueQuery('SELECT MAX(id) FROM civicrm_contact');

@@ -7,7 +7,7 @@
  * @date 6 Jul 2016
  * @license AGPL-3.0
  */
-class CRM_Migratie_Logger {
+class CRM_Migration_Logger {
   
   private $_logFile = null;
 
