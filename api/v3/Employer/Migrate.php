@@ -22,8 +22,6 @@ function civicrm_api3_employer_Migrate($params) {
     $civiEmployer = new CRM_Migration_Employer($entity, $daoSource, $logger);
     $civiEmployer->migrate();
   }
-  // set max contact id + 1 as the auto increment key for contact_id
-
   if (empty($daoSource->N)) {
     $returnValues[] = 'No more employers to migrate';
   } else {

@@ -13,22 +13,25 @@
  */
 function civicrm_api3_email_Migrate($params) {
   set_time_limit(0);
+  $entity = "email";
   $returnValues = array();
-  $entity = 'email';
   $createCount = 0;
   $logCount = 0;
-  $logger = new CRM_Migratie_Logger($entity);
+  $logger = new CRM_Migration_Logger($entity);
   $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_email WHERE is_processed = 0 ORDER BY contact_id LIMIT 1000');
   while ($daoSource->fetch()) {
-    $civiEmail = new CRM_Migratie_Email($entity, $daoSource, $logger);
+    $civiEmail = new CRM_Migration_Email($entity, $daoSource, $logger);
     $newEmail = $civiEmail->migrate();
     if ($newEmail == FALSE) {
       $logCount++;
     } else {
       $createCount++;
     }
-    $updateQuery = 'UPDATE forumzfd_email SET is_processed = %1 WHERE id = %2';
-    CRM_Core_DAO::executeQuery($updateQuery, array(1 => array(1, 'Integer'), 2 => array($daoSource->id, 'Integer')));
+    $updateQuery = 'UPDATE forumzfd_email SET is_processed = %1, new_email_id = %2 WHERE id = %3';
+    CRM_Core_DAO::executeQuery($updateQuery, array(
+      1 => array(1, 'Integer'),
+      2 => array($newEmail['id'], 'Integer'),
+      3 => array($daoSource->id, 'Integer'),));
   }
   if (empty($daoSource->N)) {
     $returnValues[] = 'No more emails to migrate';

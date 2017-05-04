@@ -7,7 +7,7 @@
  * @date 1 March 2017
  * @license AGPL-3.0
  */
-class CRM_Migratie_Address extends CRM_Migratie_ForumZfd {
+class CRM_Migration_Address extends CRM_Migration_ForumZfd {
 
   /**
    * Method to migrate incoming data
@@ -17,16 +17,16 @@ class CRM_Migratie_Address extends CRM_Migratie_ForumZfd {
   public function migrate() {
     if ($this->validSourceData()) {
       if ($this->contactExists($this->_sourceData['contact_id'])) {
-        // set insert clauses and params
-        $this->setClausesAndParams();
-        $insertQuery = 'INSERT INTO civicrm_address SET '.implode(', ', $this->_insertClauses);
+        $apiParams = $this->setApiParams();
         try {
-          CRM_Core_DAO::executeQuery($insertQuery, $this->_insertParams);
-          return TRUE;
-        } catch (Exception $ex) {
-          $this->_logger->logMessage('Error', 'Error from CRM_Core_DAO::executeQuery, could not insert address with data '
-            .implode('; ', $this->_sourceData).', not migrated. Error message : '.$ex->getMessage());
-        }         
+          $newAddress = civicrm_api3('Address', 'create', $apiParams);
+          return $newAddress;
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+          $this->_logger->logMessage('Error', 'Could not create or update address '.$this->_sourceData['id'].' '
+            .$this->_sourceData['street_address'].' for contact '.$this->_sourceData['contact_id']
+            .'. Error from API Address create: '.$ex->getMessage());
+        }
       } else {
         $this->_logger->logMessage('Error', 'Could not find a contact with contact_id '
           .$this->_sourceData['contact_id'].' for address, not migrated.');
@@ -36,36 +36,24 @@ class CRM_Migratie_Address extends CRM_Migratie_ForumZfd {
   }
 
   /**
-   * Implementation of method to set the insert clauses and params for address
-   * 
-   * @access private
+   * Method to retrieve api params from source data
+   *
+   * @return array
    */
-  public function setClausesAndParams() {
-    // set all address columns that always have a value and check is primary
-    $this->checkIsPrimary();
-    $this->_insertClauses[] = 'contact_id = %1';
-    $this->_insertParams[1] = array($this->_sourceData['contact_id'], 'Integer');
-    $this->_insertClauses[] = 'is_primary = %2';
-    $this->_insertParams[2] = array($this->_sourceData['is_primary'], 'Integer');
-    $this->_insertClauses[] = 'location_type_id = %3';
-    $this->_insertParams[3] = array($this->_sourceData['location_type_id'], 'Integer');
-    $this->_insertClauses[] = 'is_billing = %4';
-    $this->_insertParams[4] = array(0, 'Integer');
-    $this->_insertClauses[] = 'manual_geo_code = %4';
-    $this->_insertClauses[] = 'country_id = %5';
-    $this->_insertParams[5] = array($this->_sourceData['country_id'], 'Integer');
-    $index = 5;
-    // flexible columns only if not empty
-    $flexibleColumns = array('street_address', 'city', 'postal_code');
-    foreach ($flexibleColumns as $columnName) {
-      if (!empty($this->_sourceData[$columnName])) {
-        $index++;
-        $this->_insertClauses[] = $columnName.' = %'.$index;
-        $this->_insertParams[$index] = array($this->_sourceData[$columnName], 'String');
+  private function setApiParams() {
+    $apiParams = $this->_sourceData;
+    $removes = array('master_id', 'new_address_id', 'id', '*_options', 'is_processed');
+    foreach ($this->_sourceData as $key => $value) {
+      if (in_array($key, $removes)) {
+        unset($apiParams[$key]);
+      }
+      if (is_array($value)) {
+        unset($apiParams[$key]);
       }
     }
+    return $apiParams;
   }
-  
+
   /**
    * Implementation of method to validate if source data is good enough for address
    *
@@ -99,5 +87,25 @@ class CRM_Migratie_Address extends CRM_Migratie_ForumZfd {
       }
     }
     return TRUE;
+  }
+
+  /**
+   * Method to fix all master ids once all addresses have been migrated
+   */
+  public static function fixMasterIds() {
+    $daoSource = CRM_Core_DAO::executeQuery("SELECT new_address_id, master_id FROM forumzfd_address WHERE master_id IS NOT NULL");
+    while ($daoSource->fetch()) {
+      // get new address id of master
+      $sql = "SELECT new_address_id FROM forumzfd_address WHERE id = %1";
+      $newMasterId = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($daoSource->master_id, 'Integer'),));
+      // update master in address
+      if (!empty($newMasterId)) {
+        $update = 'UPDATE civicrm_address SET master_id = %1 WHERE id = %2';
+        CRM_Core_DAO::executeQuery($update, array(
+          1 => array($newMasterId, 'Integer'),
+          2 => array($daoSource->new_address_id, 'Integer'),
+        ));
+      }
+    }
   }
 }

@@ -17,21 +17,26 @@ function civicrm_api3_address_Migrate($params) {
   $returnValues = array();
   $createCount = 0;
   $logCount = 0;
-  $logger = new CRM_Migratie_Logger($entity);
+  $logger = new CRM_Migration_Logger($entity);
   $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_address WHERE is_processed = 0 ORDER BY contact_id LIMIT 1000');
   while ($daoSource->fetch()) {
-    $civiAddress = new CRM_Migratie_Address($entity, $daoSource, $logger);
+    $civiAddress = new CRM_Migration_Address($entity, $daoSource, $logger);
     $newAddress = $civiAddress->migrate();
     if ($newAddress == FALSE) {
       $logCount++;
     } else {
       $createCount++;
     }
-    $updateQuery = 'UPDATE forumzfd_address SET is_processed = %1 WHERE id = %2';
-    CRM_Core_DAO::executeQuery($updateQuery, array(1 => array(1, 'Integer'), 2 => array($daoSource->id, 'Integer')));
+    $updateQuery = 'UPDATE forumzfd_address SET is_processed = %1, new_address_id = %2 WHERE id = %3';
+    CRM_Core_DAO::executeQuery($updateQuery, array(
+      1 => array(1, 'Integer'),
+      2 => array($newAddress['id'], 'Integer'),
+      3 => array($daoSource->id, 'Integer'),));
   }
   if (empty($daoSource->N)) {
-    $returnValues[] = 'No more addresses to migrate';
+    // first correct all master ids!
+    CRM_Migration_Address::fixMasterIds();
+    $returnValues[] = 'No more addresses to migrate, all master ids fixed';
   } else {
     $returnValues[] = $createCount.' addresses migrated to CiviCRM, '.$logCount.' with logged errors that were not migrated';
   }

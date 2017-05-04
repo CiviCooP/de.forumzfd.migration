@@ -70,9 +70,48 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
       $this->_logger->logMessage('Error', 'Contact has no contact_id, not migrated. Source data is '.implode(';', $this->_sourceData));
       return FALSE;
     }
+    if ($this->_sourceData['contact_type'] == 'Individual') {
+      if (empty($this->_sourceData['first_name']) && empty($this->_sourceData['last_name'])) {
+        if (filter_var($this->_sourceData['sort_name'], FILTER_VALIDATE_EMAIL) == TRUE) {
+          $this->_sourceData['email'] = $this->_sourceData['sort_name'];
+        } else {
+          $this->_logger->logMessage('Error', 'Contact of type Individual has no first name, last name or email, not migrated' . ', hash of source contact is ' . $this->_sourceData['hash']);
+          return FALSE;
+        }
+      }
+    }
+    if ($this->_sourceData['contact_type'] == 'Household') {
+      if (empty($this->_sourceData['household_name'])) {
+        if (filter_var($this->_sourceData['sort_name'], FILTER_VALIDATE_EMAIL) == TRUE) {
+          $this->_sourceData['email'] = $this->_sourceData['sort_name'];
+        } else {
+          $this->_logger->logMessage('Error', 'Contact of type Household has no name and no email, not migrated' . ', hash of source contact is ' . $this->_sourceData['hash']);
+          return FALSE;
+        }
+      }
+    }
+    if ($this->_sourceData['contact_type'] == 'Organization') {
+      if (empty($this->_sourceData['organization_name'])) {
+        if (filter_var($this->_sourceData['sort_name'], FILTER_VALIDATE_EMAIL) == TRUE) {
+          $this->_sourceData['email'] = $this->_sourceData['sort_name'];
+        } else {
+          $this->_logger->logMessage('Error', 'Contact of type Organization has no name and no email, not migrated' . ', hash of source contact is ' . $this->_sourceData['hash']);
+          return FALSE;
+        }
+      }
+    }
     // check if email and postal greeting exists, if not use default
     $this->checkGreeting();
+    // remove gender id if 0
+    if ($this->_sourceData['gender_id'] == 0) {
+      unset($this->_sourceData['gender_id']);
+    }
     return TRUE;
+  }
+  private function sortNameContainsEmail($sortName) {
+  if (filter_var($sortName, FILTER_VALIDATE_EMAIL) == TRUE) {
+
+    }
   }
 
   /**
@@ -82,6 +121,7 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
     $config = CRM_Migration_Config::singleton();
     $defaultEmail = NULL;
     $defaultPostal = NULL;
+    $defaultAddressee = NULL;
     $filter = NULL;
     // warning if both email greeting custom and id set
     if (!empty($this->_sourceData['email_greeting_custom']) && !empty($this->_sourceData['email_greeting_id'])) {
@@ -95,22 +135,31 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
       .$this->_sourceData['display_name'].', postal_greeting_id ignored');
       $this->_sourceData['postal_greeting_id'] = NULL;
     }
+    // warning if both addressee greeting custom and id set
+    if (!empty($this->_sourceData['addressee_custom']) && !empty($this->_sourceData['addressee_id'])) {
+      $this->_logger->logMessage('Warning', 'Both addressee_id and addressee_custom set for contact '
+      .$this->_sourceData['display_name'].', adressee_id ignored');
+      $this->_sourceData['addressee_id'] = NULL;
+    }
     // set filter based on contact type
     switch ($this->_sourceData['contact_type']) {
       case "Individual":
         $filter = 1;
         $defaultEmail = $config->getDefaultEmailIndividual();
         $defaultPostal = $config->getDefaultPostalIndividual();
+        $defaultAddressee = $config->getDefaultAddresseeIndividual();
         break;
       case "Household":
         $filter = 2;
         $defaultEmail = $config->getDefaultEmailHousehold();
         $defaultPostal = $config->getDefaultPostalHousehold();
+        $defaultAddressee = $config->getDefaultAddresseeHousehold();
         break;
       case "Organization":
         $filter = 3;
         $defaultEmail = $config->getDefaultEmailOrganization();
         $defaultPostal = $config->getDefaultPostalOrganization();
+        $defaultAddressee = $config->getDefaultAddresseeOrganization();
         break;
     }
     // check email greeting
@@ -155,6 +204,28 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
           .$this->_sourceData['postal_greeting_id'].', contact with name '.$this->_sourceData['display_name'].' and contact type '
           .$this->_sourceData['contact_type'].', replaced with the default postal greeting id '.$defaultPostal);
         $this->_sourceData['postal_greeting_id'] = $defaultPostal;
+      }
+    }
+    // check addressee
+    if (isset($this->_sourceData['addressee_id']) && !empty($this->_sourceData['addressee_id'])) {
+      try {
+        $addresseeCount = civicrm_api3('OptionValue', 'getcount', array(
+          'option_group_id' => 'addressee',
+          'value' => $this->_sourceData['addressee_id'],
+          'filter' => $filter,
+        ));
+        if ($addresseeCount == 0) {
+          $this->_logger->logMessage('Warning', 'Could not find addressee_id '.$this->_sourceData['addressee_id']
+            .' for contact with name '.$this->_sourceData['display_name'].' and contact type '.$this->_sourceData['contact_type']
+            .', replaced with the default addressee_id '.$defaultAddressee);
+          $this->_sourceData['addressee_id'] = $defaultAddressee;
+        }
+      }
+      catch (CiviCRM_API3_Exception $ex) {
+        $this->_logger->logMessage('Warning', 'Error from API OptionValue getcount in '.__METHOD__.' for addressee_id '
+          .$this->_sourceData['addressee_id'].', contact with name '.$this->_sourceData['display_name'].' and contact type '
+          .$this->_sourceData['contact_type'].', replaced with the default addressee id '.$defaultAddressee);
+        $this->_sourceData['addressee_id'] = $defaultAddressee;
       }
     }
   }

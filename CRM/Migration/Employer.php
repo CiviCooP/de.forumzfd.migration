@@ -18,15 +18,14 @@ class CRM_Migration_Employer extends CRM_Migration_ForumZfd {
   public function migrate() {
     if ($this->validSourceData()) {
       try {
-        if ($this->validSourceData()) {
           $apiParams = array(
-            'id' => $this->_sourceData['id'],
+            'id' => $this->_sourceData['new_contact_id'],
             'employer_id' => $this->_sourceData['employer_id'],
           );
           $created = civicrm_api3('Contact', 'create', $apiParams);
           return $created;
         }
-      } catch (CiviCRM_API3_Exception $ex) {
+        catch (CiviCRM_API3_Exception $ex) {
         $message = 'Could not update contact with employer details, error from API Contact create: ' . $ex->getMessage() . '. Source data is ';
         $paramMessage = array();
         foreach ($apiParams as $paramKey => $paramValue) {
@@ -59,7 +58,7 @@ class CRM_Migration_Employer extends CRM_Migration_ForumZfd {
   private function getEmployer() {
     if (isset($this->_sourceData['employer_id']) && !empty($this->_sourceData['employer_id'])) {
       $sql = "SELECT new_contact_id FROM forumzfd_contact WHERE id = %1";
-      $newContactId = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($this->_sourceData['employer_id'])));
+      $newContactId = CRM_Core_DAO::singleValueQuery($sql, array(1 => array($this->_sourceData['employer_id'], 'Integer')));
       if ($newContactId) {
         $this->_sourceData['employer_id'] = $newContactId;
       } else {

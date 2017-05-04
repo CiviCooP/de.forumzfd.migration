@@ -15,6 +15,9 @@ class CRM_Migration_Config {
   private $_defaultEmailIndividual = NULL;
   private $_defaultEmailOrganization = NULL;
   private $_defaultEmailHousehold = NULL;
+  private $_defaultAddresseeIndividual = NULL;
+  private $_defaultAddresseeOrganization = NULL;
+  private $_defaultAddresseeHousehold = NULL;
 
   /**
    * Constructor method
@@ -59,10 +62,52 @@ class CRM_Migration_Config {
         'is_default' => 1,
         'return' => 'value',
       ));
+      $this->_defaultAddresseeHousehold = civicrm_api3('OptionValue', 'getvalue', array(
+        'option_group_id' => 'addressee',
+        'filter'=> 2,
+        'is_default' => 1,
+        'return' => 'value',
+      ));
+      $this->_defaultAddresseeIndividual = civicrm_api3('OptionValue', 'getvalue', array(
+        'option_group_id' => 'addressee',
+        'filter'=> 1,
+        'is_default' => 1,
+        'return' => 'value',
+      ));
+      $this->_defaultAddresseeOrganization = civicrm_api3('OptionValue', 'getvalue', array(
+        'option_group_id' => 'addressee',
+        'filter'=> 3,
+        'is_default' => 1,
+        'return' => 'value',
+      ));
     }
     catch (CiviCRM_API3_Exception $ex) {
 
     }
+  }
+
+  /**
+   * Getter for default addressee id household
+   * @return array|null
+   */
+  public function getDefaultAddresseeHousehold() {
+    return $this->_defaultAddresseeHousehold;
+  }
+
+  /**
+   * Getter for default addressee id individual
+   * @return array|null
+   */
+  public function getDefaultAddresseeIndividual() {
+    return $this->_defaultAddresseeIndividual;
+  }
+
+  /**
+   * Getter for default addressee id organization
+   * @return array|null
+   */
+  public function getDefaultAddresseeOrganization() {
+    return $this->_defaultAddresseeOrganization;
   }
 
   /**
