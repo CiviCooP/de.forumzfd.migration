@@ -62,11 +62,11 @@ class CRM_Migration_Email extends CRM_Migration_ForumZfd {
    */
   public function validSourceData() {
     if (!isset($this->_sourceData['contact_id'])) {
-      $this->_logger->logMessage('Error', 'Email has no contact_id, email not migrated. Source data is '.implode(';', $this->_sourceData));
+      $this->_logger->logMessage('Error', 'Email has no contact_id, email not migrated. Old email ID is '.$this->_sourceData['id']);
       return FALSE;
     }
     if (empty($this->_sourceData['email'])) {
-      $this->_logger->logMessage('Error', 'Email has an empty emailaddress, email not migrated. Source data is '.implode(';', $this->_sourceData));
+      $this->_logger->logMessage('Error', 'Email has an empty emailaddress, email not migrated. Old email ID is '.$this->_sourceData['id']);
       return FALSE;
     }
     if (!$this->validLocationType()) {

@@ -7,7 +7,7 @@
  * @date 1 March 2017
  * @license AGPL-3.0
  */
-class CRM_Migratie_Phone extends CRM_Migratie_ForumZfd {
+class CRM_Migration_Phone extends CRM_Migration_ForumZfd {
 
   /**
    * Method to migrate incoming data
@@ -17,40 +17,22 @@ class CRM_Migratie_Phone extends CRM_Migratie_ForumZfd {
   public function migrate() {
     if ($this->validSourceData()) {
       if ($this->contactExists($this->_sourceData['contact_id'])) {
-        // set insert clauses and params
-        $this->setClausesAndParams();
-        $insertQuery = 'INSERT INTO civicrm_phone SET '.implode(', ', $this->_insertClauses);
+        $apiParams = $this->setApiParams();
         try {
-          CRM_Core_DAO::executeQuery($insertQuery, $this->_insertParams);
-          return TRUE;
-        } catch (Exception $ex) {
-          $this->_logger->logMessage('Error', 'Error from CRM_Core_DAO::executeQuery, could not insert phone with data '
-            .implode('; ', $this->_sourceData).', not migrated. Error message : '.$ex->getMessage());
+          $newEmail = civicrm_api3('Phone', 'create', $apiParams);
+          return $newEmail;
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+          $this->_logger->logMessage('Error', 'Could not create or update phone '.$this->_sourceData['id'].' '
+            .$this->_sourceData['phone'].' for contact '.$this->_sourceData['contact_id']
+            .'. Error from API Phone create: '.$ex->getMessage());
         }
       } else {
         $this->_logger->logMessage('Error', 'Could not find a contact with contact_id '
           .$this->_sourceData['contact_id'].' for phone, not migrated.');
       }
     }
-  }
-
-  /**
-   * Implementation of method to set the insert clauses and params for phone
-   */
-  public function setClausesAndParams() {
-    $this->checkIsPrimary();
-    $this->_insertClauses[] = 'contact_id = %1';
-    $this->_insertParams[1] = array($this->_sourceData['contact_id'], 'Integer');
-    $this->_insertClauses[] = 'is_primary = %2';
-    $this->_insertParams[2] = array($this->_sourceData['is_primary'], 'Integer');
-    $this->_insertClauses[] = 'location_type_id = %3';
-    $this->_insertParams[3] = array($this->_sourceData['location_type_id'], 'Integer');
-    $this->_insertClauses[] = 'is_billing = %4';
-    $this->_insertParams[4] = array(0, 'Integer');
-    $this->_insertClauses[] = 'phone_type_id = %5';
-    $this->_insertParams[5] = array($this->_sourceData['phone_type_id'], 'Integer');
-    $this->_insertClauses[] = 'phone = %6';
-    $this->_insertParams[6] = array($this->_sourceData['phone'], 'String');
+    return FALSE;
   }
 
   /**
@@ -96,19 +78,36 @@ class CRM_Migratie_Phone extends CRM_Migratie_ForumZfd {
       $this->_logger->logMessage('Error', 'Phone has no contact_id, Phone not migrated. Source data is '.implode(';', $this->_sourceData));
       return FALSE;
     }
-
     if (empty($this->_sourceData['phone'])) {
       $this->_logger->logMessage('Error', 'Phone has an empty phone number, Phone not migrated. Source data is '.implode(';', $this->_sourceData));
       return FALSE;
     }
-
     if (!$this->validLocationType()) {
       return FALSE;
     }
-    
     if (!$this->validPhoneType()) {
       return FALSE;
     }
     return TRUE;
   }
+
+  /**
+   * Method to retrieve api params from source data
+   *
+   * @return array
+   */
+  private function setApiParams() {
+    $apiParams = $this->_sourceData;
+    $removes = array('new_phone_id', 'id', '*_options', 'is_processed');
+    foreach ($this->_sourceData as $key => $value) {
+      if (in_array($key, $removes)) {
+        unset($apiParams[$key]);
+      }
+      if (is_array($value)) {
+        unset($apiParams[$key]);
+      }
+    }
+    return $apiParams;
+  }
+
 }

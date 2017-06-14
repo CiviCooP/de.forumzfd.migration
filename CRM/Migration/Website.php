@@ -7,7 +7,7 @@
  * @date 1 March 2017
  * @license AGPL-3.0
  */
-class CRM_Migratie_Website extends CRM_Migratie_ForumZfd {
+class CRM_Migration_Website extends CRM_Migration_ForumZfd {
 
   /**
    * Method to migrate incoming data
@@ -17,15 +17,15 @@ class CRM_Migratie_Website extends CRM_Migratie_ForumZfd {
   public function migrate() {
     if ($this->validSourceData()) {
       if ($this->contactExists($this->_sourceData['contact_id'])) {
-        // set insert clauses and params
-        $this->setClausesAndParams();
-        $insertQuery = 'INSERT INTO civicrm_website SET '.implode(', ', $this->_insertClauses);
+        $apiParams = $this->setApiParams();
         try {
-          CRM_Core_DAO::executeQuery($insertQuery, $this->_insertParams);
-          return TRUE;
-        } catch (Exception $ex) {
-          $this->_logger->logMessage('Error', 'Error from CRM_Core_DAO::executeQuery, could not insert website with data '
-            .implode('; ', $this->_sourceData).', not migrated. Error message : '.$ex->getMessage());
+          $newWebsite = civicrm_api3('Website', 'create', $apiParams);
+          return $newWebsite;
+        }
+        catch (CiviCRM_API3_Exception $ex) {
+          $this->_logger->logMessage('Error', 'Could not create or website '.$this->_sourceData['id'].' '
+            .$this->_sourceData['url'].' for contact '.$this->_sourceData['contact_id']
+            .'. Error from API Website create: '.$ex->getMessage());
         }
       } else {
         $this->_logger->logMessage('Error', 'Could not find a contact with contact_id '
@@ -36,19 +36,23 @@ class CRM_Migratie_Website extends CRM_Migratie_ForumZfd {
   }
 
   /**
-   * Implementation of method to set the insert clauses and params for email
-   * 
-   * @access private
+   * Method to retrieve api params from source data
+   *
+   * @return array
    */
-  public function setClausesAndParams() {
-    $this->_insertClauses[] = 'contact_id = %1';
-    $this->_insertParams[1] = array($this->_sourceData['contact_id'], 'Integer');
-    $this->_insertClauses[] = 'website_type_id = %2';
-    $this->_insertParams[2] = array($this->_sourceData['website_type_id'], 'Integer');
-    $this->_insertClauses[] = 'url = %3';
-    $this->_insertParams[3] = array($this->_sourceData['url'], 'String');
+  private function setApiParams() {
+    $apiParams = $this->_sourceData;
+    $removes = array('new_website_id', 'id', '*_options', 'is_processed');
+    foreach ($this->_sourceData as $key => $value) {
+      if (in_array($key, $removes)) {
+        unset($apiParams[$key]);
+      }
+      if (is_array($value)) {
+        unset($apiParams[$key]);
+      }
+    }
+    return $apiParams;
   }
-
   /**
    * Implementation of method to validate if source data is good enough for website
    *
@@ -57,12 +61,12 @@ class CRM_Migratie_Website extends CRM_Migratie_ForumZfd {
   public function validSourceData() {
 
     if (!isset($this->_sourceData['contact_id'])) {
-      $this->_logger->logMessage('Error', 'Email has no contact_id, website not migrated. Source data is '.implode(';', $this->_sourceData));
+      $this->_logger->logMessage('Error', 'Website has no contact_id, website not migrated. Website id is '.$this->_sourceData['id']);
       return FALSE;
     }
 
     if (empty($this->_sourceData['url'])) {
-      $this->_logger->logMessage('Error', 'Website has an empty url, website not migrated. Source data is '.implode(';', $this->_sourceData));
+      $this->_logger->logMessage('Error', 'Website has an empty url, website not migrated. Website id is '.$this->_sourceData['id']);
       return FALSE;
     }
 

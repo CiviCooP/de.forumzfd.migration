@@ -23,15 +23,19 @@ function civicrm_api3_address_Migrate($params) {
     $civiAddress = new CRM_Migration_Address($entity, $daoSource, $logger);
     $newAddress = $civiAddress->migrate();
     if ($newAddress == FALSE) {
+      $updateQuery = 'UPDATE forumzfd_address SET is_processed = %1, WHERE id = %2';
+      CRM_Core_DAO::executeQuery($updateQuery, array(
+        1 => array(1, 'Integer'),
+        2 => array($daoSource->id, 'Integer'),));
       $logCount++;
     } else {
       $createCount++;
+      $updateQuery = 'UPDATE forumzfd_address SET is_processed = %1, new_address_id = %2 WHERE id = %3';
+      CRM_Core_DAO::executeQuery($updateQuery, array(
+        1 => array(1, 'Integer'),
+        2 => array($newAddress['id'], 'Integer'),
+        3 => array($daoSource->id, 'Integer'),));
     }
-    $updateQuery = 'UPDATE forumzfd_address SET is_processed = %1, new_address_id = %2 WHERE id = %3';
-    CRM_Core_DAO::executeQuery($updateQuery, array(
-      1 => array(1, 'Integer'),
-      2 => array($newAddress['id'], 'Integer'),
-      3 => array($daoSource->id, 'Integer'),));
   }
   if (empty($daoSource->N)) {
     // first correct all master ids!

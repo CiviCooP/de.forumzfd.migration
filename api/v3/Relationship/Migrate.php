@@ -17,18 +17,25 @@ function civicrm_api3_relationship_Migrate($params) {
   $entity = 'relationship';
   $createCount = 0;
   $logCount = 0;
-  $logger = new CRM_Migratie_Logger($entity);
+  $logger = new CRM_Migration_Logger($entity);
   $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_relationship WHERE is_processed = 0 LIMIT 1000');
   while ($daoSource->fetch()) {
-    $civiRelationship = new CRM_Migratie_Relationship($entity, $daoSource, $logger);
+    $civiRelationship = new CRM_Migration_Relationship($entity, $daoSource, $logger);
     $newRelationship = $civiRelationship->migrate();
     if ($newRelationship == FALSE) {
       $logCount++;
+      $updateQuery = 'UPDATE forumzfd_relationship SET is_processed = %1 WHERE id = %2';
+      CRM_Core_DAO::executeQuery($updateQuery, array(
+        1 => array(1, 'Integer'),
+        2 => array($daoSource->id, 'Integer'),));
     } else {
       $createCount++;
+      $updateQuery = 'UPDATE forumzfd_relationship SET is_processed = %1, new_relationship_id = %2 WHERE id = %3';
+      CRM_Core_DAO::executeQuery($updateQuery, array(
+        1 => array(1, 'Integer'),
+        2 => array($newRelationship['id'], 'Integer'),
+        3 => array($daoSource->id, 'Integer'),));
     }
-    $updateQuery = 'UPDATE forumzfd_relationship SET is_processed = %1 WHERE id = %2';
-    CRM_Core_DAO::executeQuery($updateQuery, array(1 => array(1, 'Integer'), 2 => array($daoSource->id, 'Integer')));
   }
   if (empty($daoSource->N)) {
     $returnValues[] = 'No more relationships to migrate';

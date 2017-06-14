@@ -59,6 +59,7 @@ abstract class CRM_Migration_ForumZfd {
   private function entityCanBeMigrated($entity) {
     $validEntities = array(
       'address',
+      'campaign',
       'contact',
       'email',
       'employer',

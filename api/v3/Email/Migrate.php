@@ -24,14 +24,18 @@ function civicrm_api3_email_Migrate($params) {
     $newEmail = $civiEmail->migrate();
     if ($newEmail == FALSE) {
       $logCount++;
+      $updateQuery = 'UPDATE forumzfd_email SET is_processed = %1 WHERE id = %2';
+      CRM_Core_DAO::executeQuery($updateQuery, array(
+        1 => array(1, 'Integer'),
+        2 => array($daoSource->id, 'Integer'),));
     } else {
       $createCount++;
+      $updateQuery = 'UPDATE forumzfd_email SET is_processed = %1, new_email_id = %2 WHERE id = %3';
+      CRM_Core_DAO::executeQuery($updateQuery, array(
+        1 => array(1, 'Integer'),
+        2 => array($newEmail['id'], 'Integer'),
+        3 => array($daoSource->id, 'Integer'),));
     }
-    $updateQuery = 'UPDATE forumzfd_email SET is_processed = %1, new_email_id = %2 WHERE id = %3';
-    CRM_Core_DAO::executeQuery($updateQuery, array(
-      1 => array(1, 'Integer'),
-      2 => array($newEmail['id'], 'Integer'),
-      3 => array($daoSource->id, 'Integer'),));
   }
   if (empty($daoSource->N)) {
     $returnValues[] = 'No more emails to migrate';

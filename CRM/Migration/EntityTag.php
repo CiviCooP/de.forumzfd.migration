@@ -7,7 +7,7 @@
  * @date 1 March 2017
  * @license AGPL-3.0
  */
-class CRM_Migratie_EntityTag extends CRM_Migratie_ForumZfd {
+class CRM_Migration_EntityTag extends CRM_Migration_ForumZfd {
 
   /**
    * Method to migrate incoming data
@@ -17,36 +17,48 @@ class CRM_Migratie_EntityTag extends CRM_Migratie_ForumZfd {
   public function migrate() {
     if ($this->validSourceData()) {
       if ($this->contactExists($this->_sourceData['entity_id'])) {
-        // set insert clauses and params
-        $this->setClausesAndParams();
-        $insertQuery = 'INSERT INTO civicrm_entity_tag SET '.implode(', ', $this->_insertClauses);
-        try {
-          CRM_Core_DAO::executeQuery($insertQuery, $this->_insertParams);
-          return TRUE;
-        } catch (Exception $ex) {
-          $this->_logger->logMessage('Error', 'Error from CRM_Core_DAO::executeQuery, could not insert entity_tag with data '
-            .implode('; ', $this->_sourceData).', not migrated. Error message : '.$ex->getMessage());
-        }         
+        $apiParams = $this->setApiParams();
+        // if not already exists
+        $count = civicrm_api3('EntityTag', 'getcount', array(
+          'entity_table' => 'civicrm_contact',
+          'entity_id' => $apiParams['entity_id'],
+          'tag_id' => $apiParams['tag_id'],
+        ));
+        if ($count == 0) {
+          try {
+            $newEntityTag = civicrm_api3('EntityTag', 'create', $apiParams);
+            return $newEntityTag;
+          }
+          catch (CiviCRM_API3_Exception $ex) {
+            $this->_logger->logMessage('Error', 'Could not create or update entity tag '.$this->_sourceData['tag_id'].' '
+              .' for contact '.$this->_sourceData['entity_id'].'. Error from API EntityTag create: '.$ex->getMessage());
+          }
+        }
       } else {
         $this->_logger->logMessage('Error', 'Could not find a contact with contact_id '
-          .$this->_sourceData['entity_id'].' for entity_tag, not migrated.');
+          .$this->_sourceData['entity_id'].' for entity tag, not migrated.');
       }
     }
     return FALSE;
   }
 
   /**
-   * Implementation of method to set the insert clauses and params for email
-   * 
-   * @access private
+   * Method to retrieve api params from source data
+   *
+   * @return array
    */
-  public function setClausesAndParams() {
-    $this->_insertClauses[] = 'entity_table = %1';
-    $this->_insertParams[1] = array($this->_sourceData['entity_table'], 'String');
-    $this->_insertClauses[] = 'entity_id = %2';
-    $this->_insertParams[2] = array($this->_sourceData['entity_id'], 'Integer');
-    $this->_insertClauses[] = 'tag_id = %3';
-    $this->_insertParams[3] = array($this->_sourceData['tag_id'], 'Integer');
+  private function setApiParams() {
+    $apiParams = $this->_sourceData;
+    $removes = array('new_entity_tag_id', 'id', '*_options', 'is_processed');
+    foreach ($this->_sourceData as $key => $value) {
+      if (in_array($key, $removes)) {
+        unset($apiParams[$key]);
+      }
+      if (is_array($value)) {
+        unset($apiParams[$key]);
+      }
+    }
+    return $apiParams;
   }
 
   /**
