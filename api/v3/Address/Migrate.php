@@ -18,12 +18,12 @@ function civicrm_api3_address_Migrate($params) {
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migration_Logger($entity);
-  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_address WHERE is_processed = 0 ORDER BY contact_id LIMIT 1000');
+  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_address WHERE is_processed = 0 ORDER BY contact_id LIMIT 1500');
   while ($daoSource->fetch()) {
     $civiAddress = new CRM_Migration_Address($entity, $daoSource, $logger);
     $newAddress = $civiAddress->migrate();
     if ($newAddress == FALSE) {
-      $updateQuery = 'UPDATE forumzfd_address SET is_processed = %1, WHERE id = %2';
+      $updateQuery = 'UPDATE forumzfd_address SET is_processed = %1 WHERE id = %2';
       CRM_Core_DAO::executeQuery($updateQuery, array(
         1 => array(1, 'Integer'),
         2 => array($daoSource->id, 'Integer'),));

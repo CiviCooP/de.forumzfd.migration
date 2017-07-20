@@ -25,7 +25,7 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
       }
       catch (CiviCRM_API3_Exception $ex) {
         $this->_logger->logMessage('Error', 'Could not create contribution ID '.$this->_sourceData['id']
-          .', error from API Contribution create');
+          .', error from API Contribution create: '.$ex->getMessage());
         return FALSE;
       }
     }
@@ -44,23 +44,16 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
         .$this->_sourceData['id']);
       return FALSE;
     }
-    // find payment instrument
-    try {
-      $count = civicrm_api3('OptionValue', 'getcount', array(
-        'option_group_id' => 'payment_instrument',
-        'value' => $this->_sourceData['payment_instrument_id'],
-      ));
-      if ($count == 0) {
-        $this->_logger->logMessage('Error', 'Could not find payment instrument ID ' . $this->_sourceData['payment_instrument_id']
-          . ' for contribution ID ' . $this->_sourceData['id'] . ', not migrated.');
-        return FALSE;
-      }
-    }
-    catch (CiviCRM_API3_Exception $ex) {
-      $this->_logger->logMessage('Error', 'Could not find payment instrument ID '.$this->_sourceData['payment_instrument_id']
-        .' for contribution ID '.$this->_sourceData['id'].', not migrated.');
+    // find new contact
+    $newContactId = $this->findNewContactId($this->_sourceData['contact_id']);
+    if (empty($newContactId)) {
+      $this->_logger->logMessage('Error', 'No new contact found for contact '.$this->_sourceData['contact_id']
+        .' in contribution '.$this->_sourceData['id']);
       return FALSE;
+    } else {
+      $this->_sourceData['new_contact_id'] = $newContactId;
     }
+
     // find contribution status
     try {
       $count = civicrm_api3('OptionValue', 'getcount', array(
@@ -87,15 +80,21 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
    */
   private function generateContributionData() {
     $this->_contributionData = array(
-      'contact_id' => $this->_sourceData['contact_id'],
+      'contact_id' => $this->_sourceData['new_contact_id'],
       'financial_type_id' => $this->_sourceData['financial_type_id'],
-      'payment_instrument_id' => $this->_sourceData['payment_instrument_id'],
       'receive_date' => $this->_sourceData['receive_date'],
       'currency' => $this->_sourceData['currency'],
       'contribution_status_id' => $this->_sourceData['contribution_status_id'],
-      'campaign_id' => $this->_sourceData['campaign_id'],
-      'check_number' => $this->_sourceData['check_number'],
     );
+    if (!empty($this->_sourceData['campaign_id'])) {
+      $this->_contributionData['campaign_id'] = $this->findNewCampaignId($this->_sourceData['campaign_id']);
+    }
+    if (!empty($this->_sourceData['payment_instrument_id'])) {
+      $this->_contributionData['payment_instrument_id'] = $this->_sourceData['payment_instrument_id'];
+    }
+    if (!empty($this->_sourceData['check_number'])) {
+      $this->_contributionData['check_number'] = $this->_sourceData['check_number'];
+    }
     if (empty($this->_sourceData['source'])) {
       $this->_contributionData['source'] = 'Migration 2017';
     } else {
@@ -103,7 +102,7 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
     }
     $emptyChecks = array('non_deductible_amount', 'total_amount', 'fee_amount', 'net_amount', 'trxn_id', 'invoice_id',
       'cancel_date', 'cancel_reason', 'receipt_date', 'thankyou_date', 'amount_level', 'is_pay_later', 'address_id',
-      'tax_amount', 'creditnote_id', 'revenue_recognition_date', 'contribution_page_id');
+      'tax_amount', 'creditnote_id', 'contribution_page_id');
     foreach ($emptyChecks as $emptyCheck) {
       if (isset($this->_sourceData[$emptyCheck]) && !empty($this->_sourceData[$emptyCheck])) {
         $this->_contributionData[$emptyCheck] = $this->_sourceData[$emptyCheck];

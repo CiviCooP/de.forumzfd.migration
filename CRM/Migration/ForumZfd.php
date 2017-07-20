@@ -61,12 +61,17 @@ abstract class CRM_Migration_ForumZfd {
       'address',
       'campaign',
       'contact',
+      'contact_custom_data',
+      'contribution',
       'email',
       'employer',
       'entity_tag',
-      'membership',
+      'event',
+      'group',
+      'groupcontact',
       'note',
       'option_value',
+      'participant',
       'phone',
       'relationship',
       'website');
@@ -215,5 +220,177 @@ abstract class CRM_Migration_ForumZfd {
       }
     }
     return TRUE;
+  }
+
+  /**
+   * Method to find the new campaign id with the old one
+   *
+   * @param $sourceCampaignId
+   * @return null|string
+   */
+  protected function findNewCampaignId($sourceCampaignId) {
+    $query = 'SELECT new_campaign_id FROM forumzfd_campaign WHERE id = '.$sourceCampaignId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to find the new contact id with the old one
+   *
+   * @param $sourceContactId
+   * @return null|string
+   */
+  protected function findNewContactId($sourceContactId) {
+    $query = 'SELECT new_contact_id FROM forumzfd_contact WHERE id = '.$sourceContactId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to find the new event id with the old one
+   *
+   * @param $sourceEventId
+   * @return null|string
+   */
+  protected function findNewEventId($sourceEventId) {
+    $query = 'SELECT new_event_id FROM forumzfd_event WHERE id = '.$sourceEventId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to find the new group id with the old one
+   *
+   * @param $sourceGroupId
+   * @return null|string
+   */
+  protected function findNewGroupId($sourceGroupId) {
+    $query = 'SELECT new_group_id FROM forumzfd_group WHERE id = '.$sourceGroupId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to count the financial type
+   *
+   * @param $financialTypeId
+   * @return bool
+   */
+  protected function countFinancialTypeId($financialTypeId) {
+    try {
+      return civicrm_api3('FinancialType', 'getcount', array(
+        'id' => $financialTypeId,
+      ));
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      $this->_logger->logMessage('Error', 'Error trying to check financial type '.$financialTypeId
+        .' with API OptionValue getcount. Error from API: '.$ex->getMessage());
+    }
+  }
+
+  /**
+   * Method to get the migration table name from the custom table name
+   *
+   * @param string $tableName
+   * @return string
+   */
+  protected function generateMigrateTableName($tableName) {
+    $newName = $tableName;
+    $nameParts = explode('civicrm_value_', $tableName);
+    if (isset($nameParts[1])) {
+      $newName = 'forumzfd_value_'.$nameParts[1];
+    }
+    return $newName;
+  }
+
+  /**
+   * Method to get the DAO with data from the Custom Table name
+   *
+   * @param $tableName
+   * @return bool|CRM_Core_DAO|object
+   */
+  protected function getCustomDataDao($tableName) {
+    if (CRM_Core_DAO::checkTableExists($tableName)) {
+      return CRM_Core_DAO::executeQuery("SELECT * FROM ".$tableName);
+    } else {
+      return FALSE;
+    }
+  }
+
+  /**
+   * Method to get all the relevant columns for an insert of custom data.
+   * This is done by walking through the dao properties and checking if there
+   * is a column name with the same name in the target table
+   *
+   * @param $dao
+   * @param $tableName
+   * @return array
+   */
+  protected function getCustomDataColumns($dao, $tableName) {
+    $columns = array();
+    // add a param for each incoming $dao property that also has a column in the target table
+    $daoProperties = get_object_vars($dao);
+    foreach ($daoProperties as $daoProperty) {
+      if (CRM_Core_DAO::checkFieldExists($tableName, $daoProperty)) {
+        $column = array(
+          'name' => $daoProperty,
+          'type' => $this->getCustomColumnType($daoProperty, $tableName),
+        );
+        $columns[] = $column;
+      }
+    }
+    // just to be sure, remove id from column list if it is there. Not needed as we are going to insert
+    foreach ($columns as $columnId => $columnName) {
+      if ($columnName == 'id') {
+        unset($columns[$columnId]);
+      }
+    }
+    return $columns;
+  }
+
+  /**
+   * Method to insert custom data into custom table
+   *
+   * @param $dao
+   * @param $tableName
+   * @param $columns
+   * @throws Exception when not able to insert into table
+   * @return int
+   */
+  protected function insertCustomData($dao, $tableName, $columns) {
+    $indexArray = array();
+    $insertParams = array();
+    foreach ($columns as $columnKey => $column) {
+      $indexArray[] = '%'.$columnKey;
+      $insertParams[$columnKey] = array($column['name'], $column['type']);
+    }
+    $insertQuery = 'INSERT INTO '.$tableName.' ('.implode(', ', $columns).') VALUES('.implode(', ',$indexArray).')';
+    try {
+      CRM_Core_DAO::executeQuery($insertQuery, $insertParams);
+      return CRM_Core_DAO::singleValueQuery('SELECT MAX(id) FROM '.$tableName);
+    }
+    catch (Exception $ex) {
+      throw new Exception('Could not add custom data in table '.$tableName.', error from CRM_Core_DAO: '.$ex->getMessage());
+    }
+  }
+
+  /**
+   * Method to get the column type for the query
+   *
+   * @param $columnName
+   * @param $tableName
+   * @return string
+   */
+  protected function getCustomColumnType($columnName, $tableName) {
+    $query = "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS 
+      WHERE table_name = ".$tableName." AND COLUMN_NAME = ".$columnName;
+    $dataType = strtolower(CRM_Core_DAO::singleValueQuery($query));
+    switch ($dataType) {
+      case 'int':
+        return 'String';
+        break;
+      case 'decimal':
+        return 'Money';
+        break;
+      default:
+        return 'String';
+        break;
+    }
   }
 }

@@ -22,7 +22,7 @@ class CRM_Migration_Campaign extends CRM_Migration_ForumZfd
         $created = civicrm_api3('Campaign', 'create', $apiParams);
         return $created;
       } catch (CiviCRM_API3_Exception $ex) {
-        $message = 'Could not add or update campaign, error from API Contact campaign: ' . $ex->getMessage() . '. Source data is ';
+        $message = 'Could not add or update campaign, error from API Campaign create: ' . $ex->getMessage() . '. Source data is ';
         $paramMessage = array();
         foreach ($apiParams as $paramKey => $paramValue) {
           $paramMessage[] = $paramKey . ' with value ' . $paramValue;
@@ -35,7 +35,7 @@ class CRM_Migration_Campaign extends CRM_Migration_ForumZfd
   }
 
   /**
-   * Implementation of method to validate if source data is good enough for address
+   * Implementation of method to validate if source data is good enough for campaign
    *
    * @return array
    */
@@ -53,11 +53,7 @@ class CRM_Migration_Campaign extends CRM_Migration_ForumZfd
     }
     // update parent_id if required
     if (isset($apiParams['parent_id']) && !empty($apiParams['parent_id'])) {
-      $query = 'SELECT new_campaign_id FROM forumzfd_campaign WHERE id = %1';
-      $newParentId = CRM_Core_DAO::singleValueQuery($query, array(
-        1 => array($apiParams['parent_id'], 'Integer'),
-      ));
-      $apiParams['parent_id'] = $newParentId;
+      $apiParams['parent_id'] = $this->findNewCampaignId($apiParams['parent_id']);
     }
     return $apiParams;
   }

@@ -18,7 +18,7 @@ function civicrm_api3_contact_Migrate($params) {
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migration_Logger($entity);
-  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_contact WHERE is_processed = 0 ORDER BY id LIMIT 1000');
+  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_contact WHERE is_processed = 0 ORDER BY id LIMIT 1500');
   while ($daoSource->fetch()) {
     $civiContact = new CRM_Migration_Contact($entity, $daoSource, $logger);
     $newContact = $civiContact->migrate();
@@ -32,11 +32,6 @@ function civicrm_api3_contact_Migrate($params) {
       CRM_Core_DAO::executeQuery($updateQuery, array(1 => array(1, 'Integer'), 2 => array($newContact['id'], 'Integer'), 3 => array($daoSource->id, 'Integer')));
     }
   }
-  // set max contact id + 1 as the auto increment key for contact_id
-  $maxId = CRM_Core_DAO::singleValueQuery('SELECT MAX(id) FROM civicrm_contact');
-  $maxId++;
-  CRM_Core_DAO::executeQuery('ALTER TABLE civicrm_contact AUTO_INCREMENT = '.$maxId);
-  
   if (empty($daoSource->N)) {
     $returnValues[] = 'No more contacts to migrate';
   } else {
