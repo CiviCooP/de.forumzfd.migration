@@ -72,6 +72,7 @@ abstract class CRM_Migration_ForumZfd {
       'note',
       'option_value',
       'participant',
+      'participant_custom_data',
       'phone',
       'relationship',
       'website');
@@ -245,6 +246,39 @@ abstract class CRM_Migration_ForumZfd {
   }
 
   /**
+   * Method to find the new participant id with the old one
+   *
+   * @param $sourceParticipantId
+   * @return null|string
+   */
+  protected function findNewPatricipantId($sourceParticipantId) {
+    $query = 'SELECT new_participant_id FROM forumzfd_participant WHERE id = '.$sourceParticipantId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to find the new relationship id with the old one
+   *
+   * @param $sourceRelationshipId
+   * @return null|string
+   */
+  protected function findNewRelationshipId($sourceRelationshipId) {
+    $query = 'SELECT new_relationship_id FROM forumzfd_relationship WHERE id = '.$sourceRelationshipId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to find the new contribution id with the old one
+   *
+   * @param $sourceContributionId
+   * @return null|string
+   */
+  protected function findNewContribution($sourceContributionId) {
+    $query = 'SELECT new_contribution_id FROM forumzfd_contribution WHERE id = '.$sourceContributionId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
    * Method to find the new event id with the old one
    *
    * @param $sourceEventId
@@ -307,7 +341,7 @@ abstract class CRM_Migration_ForumZfd {
    */
   protected function getCustomDataDao($tableName) {
     if (CRM_Core_DAO::checkTableExists($tableName)) {
-      return CRM_Core_DAO::executeQuery("SELECT * FROM ".$tableName);
+      return CRM_Core_DAO::executeQuery("SELECT * FROM ".$tableName." WHERE is_processed = 0");
     } else {
       return FALSE;
     }
@@ -325,23 +359,30 @@ abstract class CRM_Migration_ForumZfd {
   protected function getCustomDataColumns($dao, $tableName) {
     $columns = array();
     // add a param for each incoming $dao property that also has a column in the target table
-    $daoProperties = get_object_vars($dao);
-    foreach ($daoProperties as $daoProperty) {
-      if (CRM_Core_DAO::checkFieldExists($tableName, $daoProperty)) {
-        $column = array(
-          'name' => $daoProperty,
-          'type' => $this->getCustomColumnType($daoProperty, $tableName),
-        );
-        $columns[] = $column;
+    if (!is_object($dao)) {
+      $this->_logger->logMessage('Warning', 'Could not find a dao for custom table '.$tableName);
+    } else {
+      $dao->fetch();
+      $daoProperties = get_object_vars($dao);
+      foreach ($daoProperties as $daoProperty => $daoValue) {
+        if (substr($daoProperty,0,1) != '_' && $daoProperty != 'id') {
+          if (CRM_Core_DAO::checkFieldExists($tableName, $daoProperty)) {
+            $column = array(
+              'name' => $daoProperty,
+              'type' => $this->getCustomColumnType($daoProperty, $tableName),
+            );
+            $columns[] = $column;
+          }
+        }
       }
-    }
-    // just to be sure, remove id from column list if it is there. Not needed as we are going to insert
-    foreach ($columns as $columnId => $columnName) {
-      if ($columnName == 'id') {
-        unset($columns[$columnId]);
+      // just to be sure, remove id from column list if it is there. Not needed as we are going to insert
+      foreach ($columns as $columnId => $columnName) {
+        if ($columnName == 'id') {
+          unset($columns[$columnId]);
+        }
       }
+      return $columns;
     }
-    return $columns;
   }
 
   /**
@@ -354,19 +395,70 @@ abstract class CRM_Migration_ForumZfd {
    * @return int
    */
   protected function insertCustomData($dao, $tableName, $columns) {
-    $indexArray = array();
-    $insertParams = array();
-    foreach ($columns as $columnKey => $column) {
-      $indexArray[] = '%'.$columnKey;
-      $insertParams[$columnKey] = array($column['name'], $column['type']);
+    // only insert if not exists yet
+    if ($this->customDataExists($dao, $tableName, $columns) == FALSE) {
+      $indexArray = array();
+      $insertParams = array();
+      $columnNames = array();
+      foreach ($columns as $columnKey => $column) {
+        $property = $column['name'];
+        if (!empty($dao->$property)) {
+          $index = $columnKey + 1;
+          $indexArray[] = '%' . $index;
+          $columnNames[] = $column['name'];
+          $insertParams[$index] = array($dao->$property, $column['type']);
+        }
+      }
+      $insertQuery = 'INSERT INTO ' . $tableName . ' (' . implode(', ', $columnNames) . ') VALUES(' . implode(', ', $indexArray) . ')';
+      try {
+        CRM_Core_DAO::executeQuery($insertQuery, $insertParams);
+        // after insert, set is_processed and new_id in migrate file
+        $query = 'SELECT * FROM ' . $tableName . ' ORDER BY ID DESC LIMIT 1';
+        $result = CRM_Core_DAO::executeQuery($query);
+        if ($result->fetch()) {
+          $migrateTableName = $this->generateMigrateTableName($tableName);
+          $updateQuery = 'UPDATE ' . $migrateTableName . ' SET is_processed = %1, new_id = %2 WHERE id = %3';
+          $updateParams = array(
+            1 => array(1, 'Integer',),
+            2 => array($result->id, 'Integer',),
+            3 => array($dao->id, 'Integer',),
+          );
+          CRM_Core_DAO::executeQuery($updateQuery, $updateParams);
+        }
+      } catch (Exception $ex) {
+        $this->_logger->logMessage('Warning', 'Could not add custom data in table ' . $tableName . ', error from CRM_Core_DAO: ' . $ex->getMessage());
+      }
     }
-    $insertQuery = 'INSERT INTO '.$tableName.' ('.implode(', ', $columns).') VALUES('.implode(', ',$indexArray).')';
-    try {
-      CRM_Core_DAO::executeQuery($insertQuery, $insertParams);
-      return CRM_Core_DAO::singleValueQuery('SELECT MAX(id) FROM '.$tableName);
+  }
+
+  /**
+   * Method to check if custom data already exists
+   *
+   * @param $dao
+   * @param $tableName
+   * @param $columns
+   * @return bool
+   */
+  protected function customDataExists($dao, $tableName, $columns) {
+    $whereClauses = array(1 => 'entity_id = %1');
+    $index = 1;
+    $whereParams = array(1 => array($dao->entity_id, 'Integer'));
+    foreach ($columns as $columnKey => $columnValues) {
+      if ($columnValues['name'] != 'entity_id') {
+        $property = $columnValues['name'];
+        if (!empty($dao->$property)) {
+          $index++;
+          $whereClauses[] = $columnValues['name'] . ' = %' . $index;
+          $whereParams[$index] = array($dao->$property, $columnValues['type']);
+        }
+      }
     }
-    catch (Exception $ex) {
-      throw new Exception('Could not add custom data in table '.$tableName.', error from CRM_Core_DAO: '.$ex->getMessage());
+    $query = "SELECT COUNT(*) FROM ".$tableName." WHERE ".implode(' AND ', $whereClauses);
+    $customDataCount = CRM_Core_DAO::singleValueQuery($query, $whereParams);
+    if ($customDataCount != 0) {
+      return TRUE;
+    } else {
+      return FALSE;
     }
   }
 
@@ -378,12 +470,16 @@ abstract class CRM_Migration_ForumZfd {
    * @return string
    */
   protected function getCustomColumnType($columnName, $tableName) {
+    $dbName = CRM_Core_DAO::getDatabaseName();
     $query = "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS 
-      WHERE table_name = ".$tableName." AND COLUMN_NAME = ".$columnName;
+      WHERE table_name = '".$tableName."' AND COLUMN_NAME = '".$columnName."' AND TABLE_SCHEMA = '".$dbName."'";
     $dataType = strtolower(CRM_Core_DAO::singleValueQuery($query));
     switch ($dataType) {
       case 'int':
-        return 'String';
+        return 'Integer';
+        break;
+      case 'tinyint':
+        return 'Integer';
         break;
       case 'decimal':
         return 'Money';
@@ -391,6 +487,137 @@ abstract class CRM_Migration_ForumZfd {
       default:
         return 'String';
         break;
+    }
+  }
+
+  /**
+   * Method to find or create custom group
+   *
+   * @param $sourceData
+   * @return array|bool
+   */
+  protected function createCustomGroupIfNotExists($sourceData) {
+    try {
+      $customGroup = civicrm_api3('CustomGroup', 'getsingle', array(
+        'name' => $sourceData['name'],
+         'extends' => $sourceData['extends'],
+        ));
+      $this->createCustomFieldsIfNotExist($customGroup['name'], $customGroup['extends']);
+      return $customGroup;
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      $createParams = $this->_sourceData;
+      unset($createParams['id']);
+      unset($createParams['new_custom_id']);
+      foreach ($createParams as $createParamKey => $createParam) {
+        if (is_array($createParam)) {
+          unset($createParams[$createParamKey]);
+        }
+      }
+      unset($createParams['new_custom_group_id']);
+      // get new contact id for created if possible
+      if (isset($createParams['created_id']) && !empty($createParams['created_id'])) {
+        $newContactId = $this->findNewContactId($createParams['created_id']);
+        if ($newContactId) {
+          $createParams['created_id'] = $newContactId;
+        } else {
+          $createParams['created_id'] = 1;
+        }
+      } else {
+        $createParams['created_id'] = 1;
+      }
+      try {
+        $customGroup = civicrm_api3('CustomGroup', 'create', $createParams);
+        $this->createCustomFieldsIfNotExist($customGroup['values'][$customGroup['id']]['name'], $customGroup['values'][$customGroup['id']]['extends']);
+        return $customGroup['values'][$customGroup['id']];
+      }
+      catch (CiviCRM_API3_Exception $ex) {
+        return FALSE;
+      }
+    }
+  }
+  /**
+   * Method to find or create custom fields for custom group
+   *
+   * @param $customGroupName
+   * @param $extends
+   */
+  protected function createCustomFieldsIfNotExist($customGroupName, $extends) {
+    // first find all source fields for custom group
+    $query = "SELECT id FROM forumzfd_custom_group WHERE name = %1 AND extends = %2";
+    $sourceCustomGroupId = CRM_Core_DAO::singleValueQuery($query, array(
+      1 => array($customGroupName, 'String'),
+      2 => array($extends, 'String'),
+    ));
+
+    if ($sourceCustomGroupId) {
+      $query = "SELECT * FROM forumzfd_custom_field WHERE custom_group_id = %1";
+      $sourceCustomFields = CRM_Core_DAO::executeQuery($query, array(
+        1 => array($sourceCustomGroupId, 'Integer'),
+      ));
+      while ($sourceCustomFields->fetch()) {
+        if ($this->customFieldExists($customGroupName, $sourceCustomFields->name) == FALSE) {
+          $this->createCustomField($customGroupName, $extends, $sourceCustomFields);
+        }
+      }
+    }
+  }
+
+  /**
+   * Method to create custom field if not exists yet
+   * @param $customGroupName
+   * @param $extends
+   * @param $sourceCustomFields
+   */
+  protected function createCustomField($customGroupName, $extends, $sourceCustomFields) {
+    // find new custom group
+    $query = "SELECT id FROM forumzfd_civicrm.civicrm_custom_group WHERE extends = %1 AND name = %2";
+    $newCustomGroupId = CRM_Core_DAO::singleValueQuery($query, array(
+      1 => array($extends, 'String'),
+      2 => array($customGroupName, 'String'),
+    ));
+    if ($newCustomGroupId) {
+      $createParams = get_object_vars($sourceCustomFields);
+      $removes = array('id', 'custom_group_id', 'N', 'target_custom_group_id', 'new_custom_field_id');
+      // remove all elements starting with '_' and $removes
+      foreach ($createParams as $createParamKey => $createParamValue) {
+        if (substr($createParamKey, 0, 1) == '_') {
+          unset($createParams[$createParamKey]);
+        }
+        if (in_array($createParamKey, $removes)) {
+          unset($createParams[$createParamKey]);
+        }
+        // remove all empty ones
+        if (empty($createParamValue)) {
+          unset($createParams[$createParamKey]);
+        }
+      }
+      $createParams['custom_group_id'] = $newCustomGroupId;
+      civicrm_api3('CustomField', 'create', $createParams);
+    }
+  }
+
+  /**
+   * Method to check if custom field exists
+   *
+   * @param $customGroupName
+   * @param $customFieldName
+   * @return bool
+   */
+  protected function customFieldExists($customGroupName, $customFieldName) {
+    try {
+      $count = $customFieldId = civicrm_api3('CustomField', 'getcount', array(
+        'custom_group_id' => $customGroupName,
+        'name' => $customFieldName,
+      ));
+      if ($count == 0) {
+        return FALSE;
+      } else {
+        return TRUE;
+      }
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      return FALSE;
     }
   }
 }

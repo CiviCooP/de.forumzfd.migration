@@ -16,38 +16,23 @@ class CRM_Migration_ContactCustomData extends CRM_Migration_ForumZfd {
    */
   public function migrate() {
     if ($this->validSourceData()) {
-      // migrate data foreach table
-      foreach ($this->_sourceData['table_names'] as $sourceTableName) {
-        // get forumzfd_value table name using the original custom table name
-        $migrateTableName = $this->generateMigrateTableName($sourceTableName);
-        $dao = $this->getCustomDataDao($migrateTableName);
-        $columns = $this->getCustomDataColumns($dao, $sourceTableName);
-        while ($dao->fetch()) {
-          $this->insertCustomData($dao, $sourceTableName, $columns);
-          // todo update new_id in migration table
+      // get forumzfd_value table name using the original custom table name
+      $migrateTableName = $this->generateMigrateTableName($this->_sourceData['table_name']);
+      $dao = $this->getCustomDataDao($migrateTableName);
+      $columns = $this->getCustomDataColumns($dao, $this->_sourceData['table_name']);
+      while ($dao->fetch()) {
+        // find new contact id
+        $newContactId = $this->findNewContactId($dao->entity_id);
+        if ($newContactId) {
+          $dao->entity_id = $newContactId;
+          $this->insertCustomData($dao, $this->_sourceData['table_name'], $columns);
+        } else {
+          $this->_logger->logMessage('Error', 'Could not find or create a new contact for '.$dao->entity_id.' and table name '
+            .$this->_sourceData['table_name'].', custom data not migrated.');
         }
       }
     }
     return FALSE;
-  }
-
-  /**
-   * Method to retrieve api params from source data
-   *
-   * @return array
-   */
-  private function setApiParams() {
-    $apiParams = $this->_sourceData;
-    $removes = array('new_note_id', 'id', '*_options', 'is_processed');
-    foreach ($this->_sourceData as $key => $value) {
-      if (in_array($key, $removes)) {
-        unset($apiParams[$key]);
-      }
-      if (is_array($value)) {
-        unset($apiParams[$key]);
-      }
-    }
-    return $apiParams;
   }
 
   /**
@@ -56,12 +41,14 @@ class CRM_Migration_ContactCustomData extends CRM_Migration_ForumZfd {
    * @return bool
    */
   public function validSourceData() {
-    if (!isset($this->_sourceData['entity_id'])) {
-      $this->_logger->logMessage('Error', 'Note has no entity_id, not migrated. Source note id is '.$this->_sourceData['id']);
+    if (!isset($this->_sourceData['table_name'])) {
+      $this->_logger->logMessage('Error', 'Contact Custom Data has no table_name, not migrated.');
       return FALSE;
     }
-    if (empty($this->_sourceData['note'])) {
-      $this->_logger->logMessage('Error', 'Note is empty, not migrated. Source note id is '.$this->_sourceData['id']);
+    // create custom group and custom fields if necessary, error when not able to
+    $created = $this->createCustomGroupIfNotExists($this->_sourceData);
+    if ($created == FALSE) {
+      $this->_logger->logMessage('Error', 'Could not find or create custom group with the name '.$this->_sourceData['table_name'].', custom data not migrated.');
       return FALSE;
     }
     return TRUE;

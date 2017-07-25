@@ -32,6 +32,8 @@ function civicrm_api3_contribution_Migrate($params) {
       CRM_Core_DAO::executeQuery($updateQuery, array(1 => array(1, 'Integer'), 2 => array($newContribution['id'], 'Integer'), 3 => array($daoSource->id, 'Integer')));
     }
   }
+  // add custom data
+  CRM_Migration_Contribution::addCustomData();
 
   if (empty($daoSource->N)) {
     $returnValues[] = 'No more contributions to migrate';

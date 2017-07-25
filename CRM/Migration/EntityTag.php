@@ -71,6 +71,16 @@ class CRM_Migration_EntityTag extends CRM_Migration_ForumZfd {
       $this->_logger->logMessage('Error', 'EntityTag has no entity_id, not migrated. Source data is '.implode(';', $this->_sourceData));
       return FALSE;
     }
+
+    // new contact has to exist
+    $newContactId = $this->findNewContactId($this->_sourceData['entity_id']);
+    if (empty($newContactId)) {
+      $this->_logger->logMessage('Error', 'No new contact_id found for entity tag with id '.$this->_sourceData['id'].', entity tag not migrated');
+      return FALSE;
+    } else {
+      $this->_sourceData['entity_id'] = $newContactId;
+    }
+
     if (empty($this->_sourceData['tag_id'])) {
       $this->_logger->logMessage('Error', 'EntityTag has no tag_id, not migrated. Source data is '.implode(';', $this->_sourceData));
       return FALSE;

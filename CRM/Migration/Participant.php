@@ -35,7 +35,7 @@ class CRM_Migration_Participant extends CRM_Migration_ForumZfd {
    */
   public function setApiParams() {
     $apiParams = $this->_sourceData;
-    $remove = array('id', );
+    $remove = array('id', 'new_participant_id');
     foreach ($remove as $removeKey) {
       unset($apiParams[$removeKey]);
     }
@@ -91,6 +91,60 @@ class CRM_Migration_Participant extends CRM_Migration_ForumZfd {
           .', no campaign added for migrated participant');
       }
     }
+    // if transferred_to_contact_id, find new or remove
+    if (isset($this->_sourceData['transferred_to_contact_id']) && !empty($this->_sourceData['transferred_to_contact_id'])) {
+      $newContactId = $this->findNewContactId($this->_sourceData['transferred_to_contact_id']);
+      if ($newContactId) {
+        $this->_sourceData['transferred_to_contact_id'] = $newContactId;
+      } else {
+        unset($this->_sourceData['transferred_to_contact_id']);
+      }
+    } else {
+      unset($this->_sourceData['transferred_to_contact_id']);
+    }
+    // if registered_by_id, find new or remove
+    if (isset($this->_sourceData['registered_by_id']) && !empty($this->_sourceData['registered_by_id'])) {
+      $newContactId = $this->findNewContactId($this->_sourceData['registered_by_id']);
+      if ($newContactId) {
+        $this->_sourceData['registered_by_id'] = $newContactId;
+      } else {
+        unset($this->_sourceData['registered_by_id']);
+      }
+    } else {
+      unset($this->_sourceData['registered_by_id']);
+    }
     return TRUE;
+  }
+
+  /**
+   * Method to add participant custom data
+   */
+  public static function addCustomData() {
+    // specific logger
+    $logger = new CRM_Migration_Logger('participant_custom_data');
+    // retrieve all custom tables for participant
+    $query = "SELECT * FROM forumzfd_custom_group WHERE extends = %1";
+    $dao = CRM_Core_DAO::executeQuery($query, array(
+      1 => array('Participant', 'String'),
+    ));
+    while ($dao->fetch()) {
+      $participant = new CRM_Migration_Participant('participant_custom_data', $dao, $logger);
+      $participant->createCustomGroupIfNotExists($participant->_sourceData);
+      // get forumzfd_value table name using the original custom table name
+      $migrateTableName = $participant->generateMigrateTableName($participant->_sourceData['table_name']);
+      $daoCustomData = $participant->getCustomDataDao($migrateTableName);
+      $columns = $participant->getCustomDataColumns($daoCustomData, $participant->_sourceData['table_name']);
+      while ($daoCustomData->fetch()) {
+        // find new participant id
+        $newParticipantId = $participant->findNewPatricipantId($daoCustomData->entity_id);
+        if ($newParticipantId) {
+          $dao->entity_id = $newParticipantId;
+          $participant->insertCustomData($daoCustomData, $participant->_sourceData['table_name'], $columns);
+        } else {
+          $logger->logMessage('Error', 'Could not find or create a new contact for '.$daoCustomData->entity_id.' and table name '
+            .$participant->_sourceData['table_name'].', custom data not migrated.');
+        }
+      }
+    }
   }
 }

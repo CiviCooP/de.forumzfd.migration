@@ -12,29 +12,32 @@
  * @license AGPL-3.0
  */
 function civicrm_api3_note_Migrate($params) {
+  // param migrate_type determines what will be selected, defaulted to contact
+  $validTypes = array('contact', 'contribution', 'participant', 'relationship');
+  if (!isset($params['migrate_type'])) {
+    $entityTable = 'civicrm_contact';
+  } else {
+    if (in_array($params['migrate_type'], $validTypes)) {
+      $entityTable = 'civicrm_'.$params['migrate_type'];
+    } else {
+      $entityTable = 'civicrm_contact';
+    }
+  }
+
   set_time_limit(0);
   $returnValues = array();
   $entity = 'note';
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migration_Logger($entity);
-  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_note WHERE is_processed = 0 ORDER BY entity_id LIMIT 1000');
+  $daoSource = CRM_Core_DAO::executeQuery("SELECT * FROM forumzfd_note WHERE entity_table = '{$entityTable}' ORDER BY entity_id LIMIT 1000");
   while ($daoSource->fetch()) {
     $civiNote = new CRM_Migration_Note($entity, $daoSource, $logger);
     $newNote = $civiNote->migrate();
     if ($newNote == FALSE) {
       $logCount++;
-      $updateQuery = 'UPDATE forumzfd_note SET is_processed = %1 WHERE id = %2';
-      CRM_Core_DAO::executeQuery($updateQuery, array(
-        1 => array(1, 'Integer'),
-        2 => array($daoSource->id, 'Integer'),));
     } else {
       $createCount++;
-      $updateQuery = 'UPDATE forumzfd_note SET is_processed = %1, new_note_id = %2 WHERE id = %3';
-      CRM_Core_DAO::executeQuery($updateQuery, array(
-        1 => array(1, 'Integer'),
-        2 => array($newNote['id'], 'Integer'),
-        3 => array($daoSource->id, 'Integer'),));
     }
   }
   if (empty($daoSource->N)) {

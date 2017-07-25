@@ -25,7 +25,9 @@ class CRM_Migration_Campaign extends CRM_Migration_ForumZfd
         $message = 'Could not add or update campaign, error from API Campaign create: ' . $ex->getMessage() . '. Source data is ';
         $paramMessage = array();
         foreach ($apiParams as $paramKey => $paramValue) {
-          $paramMessage[] = $paramKey . ' with value ' . $paramValue;
+          if (!is_array($paramValue)) {
+            $paramMessage[] = $paramKey . ' with value ' . $paramValue;
+          }
         }
         $message .= implode('; ', $paramMessage);
         $this->_logger->logMessage('Error', $message);
@@ -54,6 +56,28 @@ class CRM_Migration_Campaign extends CRM_Migration_ForumZfd
     // update parent_id if required
     if (isset($apiParams['parent_id']) && !empty($apiParams['parent_id'])) {
       $apiParams['parent_id'] = $this->findNewCampaignId($apiParams['parent_id']);
+    }
+    // update created_id
+    if (isset($apiParams['created_id']) && !empty($apiParams['created_id'])) {
+      $newContactId = $this->findNewContactId($apiParams['created_id']);
+      if ($newContactId) {
+        $apiParams['created_id'] = $newContactId;
+      } else {
+        $apiParams['created_id'] = 1;
+      }
+    } else {
+      $apiParams['created_id'] = 1;
+    }
+    // update last_modified_id
+    if (isset($apiParams['last_modified_id']) && !empty($apiParams['last_modified_id'])) {
+      $newContactId = $this->findNewContactId($apiParams['last_modified_id']);
+      if ($newContactId) {
+        $apiParams['last_modified_id'] = $newContactId;
+      } else {
+        $apiParams['last_modified_id'] = 1;
+      }
+    } else {
+      $apiParams['last_modified_id'] = 1;
     }
     return $apiParams;
   }

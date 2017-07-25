@@ -51,6 +51,16 @@ class CRM_Migration_Group extends CRM_Migration_ForumZfd {
         unset($this->_sourceData['modified_id']);
       }
     }
+    if (isset($this->_sourceData['group_type'])) {
+      $emptyTest = array(
+        CRM_Core_DAO::VALUE_SEPARATOR."1".CRM_Core_DAO::VALUE_SEPARATOR,
+        CRM_Core_DAO::VALUE_SEPARATOR."2".CRM_Core_DAO::VALUE_SEPARATOR,
+        CRM_Core_DAO::VALUE_SEPARATOR."1".CRM_Core_DAO::VALUE_SEPARATOR."2".CRM_Core_DAO::VALUE_SEPARATOR,
+        );
+      if (!in_array($this->_sourceData['group_type'], $emptyTest)) {
+        unset($this->_sourceData['group_type']);
+      }
+    }
     $apiParams = $this->_sourceData;
     // fix parents later
     $remove = array('id', 'parents');
@@ -75,6 +85,11 @@ class CRM_Migration_Group extends CRM_Migration_ForumZfd {
     // title can not be empty
     if (!isset($this->_sourceData['title']) || empty($this->_sourceData['title'])) {
       $this->_logger->logMessage('Error', 'Source group '.$this->_sourceData['id'].' does not have a title, not migrated');
+      return FALSE;
+    }
+    // ignore group 1 (Administrators)
+    if ($this->_sourceData['id'] == 1) {
+      $this->_logger->logMessage('Warning', 'Source group '.$this->_sourceData['id'].' (Administrators) ignored');
       return FALSE;
     }
     return TRUE;
