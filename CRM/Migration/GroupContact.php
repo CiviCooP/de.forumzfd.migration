@@ -37,18 +37,12 @@ class CRM_Migration_GroupContact extends CRM_Migration_ForumZfd {
    * @return array
    */
   public function setApiParams() {
-    $apiParams = $this->_sourceData;
-    $remove = array('id', );
-    foreach ($remove as $removeKey) {
-      unset($apiParams[$removeKey]);
-    }
-    // remove *_options array
-    foreach ($apiParams as $key => $apiParam) {
-      if (is_array($apiParam)) {
-        unset($apiParams[$key]);
+    $otherParams = array('status', 'location_id', 'email_id');
+    foreach ($otherParams as $otherParam) {
+      if (isset($this->_sourceData[$otherParam]) && !empty($this->_sourceData[$otherParam])) {
+        $this->_apiParams[$otherParam] = $this->_sourceData[$otherParam];
       }
     }
-    return $apiParams;
   }
 
   /**
@@ -56,13 +50,19 @@ class CRM_Migration_GroupContact extends CRM_Migration_ForumZfd {
    * Using SQL as there is no SubscriptionHistory API
    */
   private function migrateSubscriptionHistory() {
+    // first remove existing subscription history created by migration of group contact
+    $deleteQuery = 'DELETE FROM civicrm_subscription_history WHERE contact_id = %1 AND group_id = %2';
+    CRM_Core_DAO::executeQuery($deleteQuery, array(
+      1 => array($this->_apiParams['contact_id'], 'Integer',),
+      2 => array($this->_apiParams['group_id'], 'Integer',),
+    ));
     $sourceQuery = 'SELECT * FROM forumzfd_subscription_history WHERE contact_id = %1 AND group_id = %2';
     $sourceParams = array(
       1 => array($this->_sourceData['contact_id'], 'Integer',),
       2 => array($this->_sourceData['group_id'], 'Integer',),);
     $dao = CRM_Core_DAO::executeQuery($sourceQuery, $sourceParams);
     while ($dao->fetch()) {
-      $targetQuery = 'INSERT INTO forumzfd_civicrm.civicrm_subscription_history (contact_id, group_id, date, method, status) VALUES(%1, %2, %3, %4, %5)';
+      $targetQuery = 'INSERT INTO civicrm_subscription_history (contact_id, group_id, date, method, status) VALUES(%1, %2, %3, %4, %5)';
       $targetParams = array(
         1 => array($this->_apiParams['contact_id'], 'Integer',),
         2 => array($this->_apiParams['group_id'], 'Integer',),
@@ -98,14 +98,18 @@ class CRM_Migration_GroupContact extends CRM_Migration_ForumZfd {
         .' with old contact id '.$this->_sourceData['contact_id'].', not migrated');
       return FALSE;
     }
-    // new group id has to exist
-    $newGroupId = $this->findNewGroupId($this->_sourceData['group_id']);
-    if ($newGroupId) {
-      $this->_apiParams['group_id'] = $newGroupId;
+    // new group id has to exist if not 1
+    if ($this->_sourceData['group_id'] != 1) {
+      $newGroupId = $this->findNewGroupId($this->_sourceData['group_id']);
+      if ($newGroupId) {
+        $this->_apiParams['group_id'] = $newGroupId;
+      } else {
+        $this->_logger->logMessage('Error', 'Could not find a new group for source group contact ' . $this->_sourceData['id']
+          . ' with old group id ' . $this->_sourceData['group_id'] . ', not migrated');
+        return FALSE;
+      }
     } else {
-      $this->_logger->logMessage('Error', 'Could not find a new group for source group contact '.$this->_sourceData['id']
-        .' with old group id '.$this->_sourceData['group_id'].', not migrated');
-      return FALSE;
+      $this->_apiParams['group_id'] = 1;
     }
     return TRUE;
   }

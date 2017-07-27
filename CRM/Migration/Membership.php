@@ -3,11 +3,11 @@
 /**
  * Class for ForumZFD Membership Migration to CiviCRM
  *
- * @author Erik Hommel (CiviCooP) <erik.hommel@civicoop.org>
- * @date 1 March 2017
+ * @author Erik Hommel  <hommel@ee-atwork.nl
+ * @date 27 July March 2017
  * @license AGPL-3.0
  */
-class CRM_Migratie_Membership extends CRM_Migratie_ForumZfd {
+class CRM_Migration_Membership extends CRM_Migration_ForumZfd {
 
   /**
    * Method to migrate incoming data
@@ -16,83 +16,64 @@ class CRM_Migratie_Membership extends CRM_Migratie_ForumZfd {
    */
   public function migrate() {
     if ($this->validSourceData()) {
-      // set insert clauses and params
-      $this->setClausesAndParams();
-      $insertQuery = 'INSERT INTO civicrm_membership SET '.implode(', ', $this->_insertClauses);
       try {
-        CRM_Core_DAO::executeQuery($insertQuery, $this->_insertParams);
-        $membership = $this->getCreatedMembership();
-        $membershipLog = new CRM_Migratie_MembershipLog();
-        $membershipLog->addMembership($membership);
-        //$contribution = new CRM_Migratie_Contribution();
-        //$contributionId = $contribution->addMembership($membership);
-        //$membershipPayment = new CRM_Migratie_MembershipPayment();
-        //$membershipPayment->addMembership($membership->id, $contributionId);
-        $this->addCustomData($membership->id, $membership->contact_id);
-        return TRUE;
-      } catch (Exception $ex) {
-        $this->_logger->logMessage('Error', 'Error from CRM_Core_DAO::executeQuery, could not insert membership with data '
-          .implode('; ', $this->_sourceData).', not migrated. Error message : '.$ex->getMessage());
+        $apiParams = $this->setApiParams();
+        $created = civicrm_api3('Membership', 'create', $apiParams);
+        return $created;
+      } catch (CiviCRM_API3_Exception $ex) {
+        $message = 'Could not add or update membership, error from API Membership create: ' . $ex->getMessage();
+        $this->_logger->logMessage('Error', $message);
+        return FALSE;
       }
     }
-    return FALSE;
   }
 
   /**
-   * Method to set membership custom data
+   * Method to set the api parameters
    *
-   * @param int $membershipId
-   * @param int $contactId
+   * @return array
    */
-  private function addCustomData($membershipId, $contactId) {
-    $customClauses = array();
-    $customParams = array();
-    // get custom data for membership
-    $selectQuery = 'SELECT * FROM domus_value_membership_data WHERE entity_id = %1';
-    $customData = CRM_Core_DAO::executeQuery($selectQuery, array(1 => array($contactId, 'Integer')));
-    if ($customData->fetch()) {
-      $customClauses[] = 'entity_id = %1';
-      $customParams[1] = array($membershipId, 'Integer');
-      $customClauses[] = 'authorization_dd = %2';
-      $customParams[2] = array($customData->authorization_dd, 'Integer');
-      $index = 2;
-      if (!empty($customData->note)) {
-        $index++;
-        $customClauses[] = 'note = %'.$index;
-        $customParams[$index] = array($customData->note, 'String');
-      }
-      $customQuery = 'INSERT INTO civicrm_value_membership_data SET '.implode(', ', $customClauses);
-      CRM_Core_DAO::executeQuery($customQuery, $customParams);
+  private function setApiParams() {
+    $apiParams = $this->_sourceData;
+    $remove = array('id', 'new_membership_id');
+    foreach ($remove as $removeKey) {
+      unset($apiParams[$removeKey]);
     }
+    // remove *_options array
+    foreach ($apiParams as $key => $apiParam) {
+      if (is_array($apiParam)) {
+        unset($apiParams[$key]);
+      }
+      if (empty($apiParam)) {
+        unset($apiParams[$key]);
+      }
+    }
+    // set new campaign id if required and found
+    if (isset($apiParams['campaign_id'])) {
+      if (empty($apiParams['campaign_id'])) {
+        unset($apiParams['campaign_id']);
+      } else {
+        $newCampaignId = $this->findNewCampaignId($apiParams['campaign_id']);
+        if ($newCampaignId) {
+          $apiParams['campaign_id'] = $newCampaignId;
+        } else {
+          $this->_logger->logMessage('Warning', 'No new campaign found for membership '.$this->_sourceData['id']
+            .' with campaign '.$apiParams['campaign_id'].', campaign removed from migrated membership');
+          unset($apiParams['campaign_id']);
+        }
+      }
+    }
+    // ignore join and start date 0000-00-00
+    if (isset($apiParams['join_date']) && $apiParams['join_date'] == '0000-00-00') {
+      $apiParams['join_date'] = '1970-01-01';
+    }
+    if (isset($apiParams['start_date']) && $apiParams['start_date'] == '0000-00-00') {
+      $apiParams['start_date'] = '1970-01-01';
+    }
+    return $apiParams;
   }
 
-  /**
-   * Implementation of method to set the insert clauses and params for address
-   * 
-   * @access private
-   */
-  public function setClausesAndParams() {
-    $this->_insertClauses[] = 'contact_id = %1';
-    $this->_insertParams[1] = array($this->_sourceData['contact_id'], 'Integer');
-    $this->_insertClauses[] = 'membership_type_id = %2';
-    $this->_insertParams[2] = array($this->_sourceData['membership_type_id'], 'Integer');
-    $this->_insertClauses[] = 'join_date = %3';
-    $this->_insertParams[3] = array($this->_sourceData['join_date'], 'String');
-    $this->_insertClauses[] = 'start_date = %4';
-    $this->_insertParams[4] = array($this->_sourceData['start_date'], 'String');
-    $this->_insertClauses[] = 'status_id = %5';
-    $this->_insertParams[5] = array($this->_sourceData['status_id'], 'Integer');
-    $this->_insertClauses[] = 'source = %6';
-    $this->_insertParams[6] = array($this->_sourceData['source'], 'String');
-    $this->_insertClauses[] = 'is_test = %7';
-    $this->_insertClauses[] = 'is_pay_later = %7';
-    $this->_insertParams[7] = array(0, 'Integer');
-    if (!empty($this->_sourceData['end_date'])) {
-      $this->_insertClauses[] = 'end_date = %8';
-      $this->_insertParams[8] = array($this->_sourceData['end_date'], 'String');
-    }
-  }
-  
+
   /**
    * Implementation of method to validate if source data is good enough for membership
    *
@@ -101,32 +82,37 @@ class CRM_Migratie_Membership extends CRM_Migratie_ForumZfd {
   public function validSourceData() {
 
     if (!isset($this->_sourceData['contact_id'])) {
-      $this->_logger->logMessage('Error', 'Membership has no contact_id, Membership not migrated. Source data is '.implode(';', $this->_sourceData));
+      $this->_logger->logMessage('Error', 'Membership '.$this->_sourceData['id'].' has no contact_id, not migrated');
       return FALSE;
     }
     if (!$this->validMembershipType() || !$this->validMembershipStatus()) {
       return FALSE;
     }
-    return TRUE;
-  }
-
-  /**
-   * Method to retrieve created membership data
-   *
-   * @return bool|CRM_Core_DAO|object
-   */
-  private function getCreatedMembership() {
-    $selectQuery = 'SELECT * FROM civicrm_membership WHERE contact_id = %1 
-          AND civicrm_membership.membership_type_id = %2 AND source = %3 ORDER BY id DESC LIMIT 1';
-    $selectParams = array(
-      1 => $this->_insertParams[1],
-      2 => $this->_insertParams[2],
-      3 => $this->_insertParams[6]);
-    $membership = CRM_Core_DAO::executeQuery($selectQuery, $selectParams);
-    if ($membership->fetch()) {
-      return $membership;
+    // find new contact id
+    $newContactId = $this->findNewContactId($this->_sourceData['contact_id']);
+    if ($newContactId) {
+      $this->_sourceData['contact_id'] = $newContactId;
     } else {
+      $this->_logger->logMessage('Error', 'No new contact found for membership '.$this->_sourceData['id'].', not migrated');
       return FALSE;
     }
+    // find new membership type id
+    switch($this->_sourceData['membership_type_id']) {
+      case 2:
+        $this->_sourceData['membership_type_id'] = 4;
+        break;
+      case 3:
+        $this->_sourceData['membership_type_id'] = 7;
+        break;
+      case 5:
+        $this->_sourceData['membership_type_id'] = 9;
+        break;
+      case 6:
+        $this->_sourceData['membership_type_id'] = 10;
+        break;
+      case 7:
+        $this->_sourceData['membership_type_id'] = 11;
+    }
+    return TRUE;
   }
 }

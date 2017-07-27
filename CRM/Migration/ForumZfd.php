@@ -12,6 +12,10 @@ abstract class CRM_Migration_ForumZfd {
   protected $_logger = NULL;
   protected $_sourceData = array();
   protected $_entity = NULL;
+  protected $_targetRecordTypeId = NULL;
+  protected $_sourceRecordTypeId = NULL;
+  protected $_assigneeRecordTypeId = NULL;
+  protected $_completedActivityStatusId = NULL;
 
   /**
    * CRM_Migratie_ForumZfd constructor.
@@ -30,6 +34,32 @@ abstract class CRM_Migration_ForumZfd {
       $this->_sourceData = (array)$sourceData;
       $this->cleanSourceData();
       $this->_logger = $logger;
+    }
+    try {
+      $this->_completedActivityStatusId = civicrm_api3('OptionValue', 'getvalue', array(
+        'option_group_id' => 'activity_status',
+        'name' => 'Completed',
+        'return' => 'value',
+      ));
+      $recordTypes = civicrm_api3('OptionValue', 'get', array(
+        'option_group_id' => 'activity_contacts',
+      ));
+      foreach ($recordTypes['values'] as $recordType) {
+        switch ($recordType['name']) {
+          case 'Activity Assignees':
+            $this->_assigneeRecordTypeId = $recordType['value'];
+            break;
+          case 'Activity Source':
+            $this->_sourceRecordTypeId = $recordType['value'];
+            break;
+          case 'Activity Targets':
+            $this->_targetRecordTypeId = $recordType['value'];
+            break;
+        }
+      }
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+
     }
   }
 
@@ -59,6 +89,8 @@ abstract class CRM_Migration_ForumZfd {
   private function entityCanBeMigrated($entity) {
     $validEntities = array(
       'address',
+      'activity',
+      'activity_custom_data',
       'campaign',
       'contact',
       'contact_custom_data',
@@ -68,7 +100,9 @@ abstract class CRM_Migration_ForumZfd {
       'entity_tag',
       'event',
       'group',
-      'groupcontact',
+      'group_custom_data',
+      'group_contact',
+      'membership',
       'note',
       'option_value',
       'participant',
@@ -173,19 +207,10 @@ abstract class CRM_Migration_ForumZfd {
         .'has no membership_type_id, not migrated');
       return FALSE;
     } else {
-      try {
-        $count = civicrm_api3('MembershipType', 'getcount', array('id' => $this->_sourceData['membership_type_id']));
-        if ($count != 1) {
-          $this->_logger->logMessage('Error', $this->_entity.' with contact_id ' . $this->_sourceData['contact_id']
-            . ' does not have a valid membership_type_id (' . $count . ' of ' . $this->_sourceData['membership_type_id']
-            . 'found), not migrated');
-          return FALSE;
-        }
-      } catch (CiviCRM_API3_Exception $ex) {
-        $this->_logger->logMessage('Error', 'Error retrieving membership type id from CiviCRM for '.$this->_entity
-          .' with contact_id '. $this->_sourceData['contact_id'] . ' and membership_type_id'
-          . $this->_sourceData['membership_type_id']
-          . ', ignored. Error from API MembershipType getcount : ' . $ex->getMessage());
+      $valid = array(1, 2, 3, 5, 6, 7);
+      if (!in_array($this->_sourceData['membership_type_id'], $valid)) {
+        $this->_logger->logMessage('Error', $this->_entity.' of contact_id '.$this->_sourceData['contact_id']
+          .'has no valid membership_type_id, not migrated');
         return FALSE;
       }
     }
@@ -224,6 +249,17 @@ abstract class CRM_Migration_ForumZfd {
   }
 
   /**
+   * Method to find the new membership id with the old one
+   *
+   * @param $sourceMembershipId
+   * @return null|string
+   */
+  protected function findNewMembershipId($sourceMembershipId) {
+    $query = 'SELECT new_membership_id FROM forumzfd_membership WHERE id = '.$sourceMembershipId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
    * Method to find the new campaign id with the old one
    *
    * @param $sourceCampaignId
@@ -242,6 +278,17 @@ abstract class CRM_Migration_ForumZfd {
    */
   protected function findNewContactId($sourceContactId) {
     $query = 'SELECT new_contact_id FROM forumzfd_contact WHERE id = '.$sourceContactId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to find the new activity id with the old one
+   *
+   * @param $sourceActivityId
+   * @return null|string
+   */
+  protected function findNewActivityId($sourceActivityId) {
+    $query = 'SELECT new_activity_id FROM forumzfd_activity WHERE id = '.$sourceActivityId;
     return CRM_Core_DAO::singleValueQuery($query);
   }
 
@@ -298,6 +345,25 @@ abstract class CRM_Migration_ForumZfd {
   protected function findNewGroupId($sourceGroupId) {
     $query = 'SELECT new_group_id FROM forumzfd_group WHERE id = '.$sourceGroupId;
     return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to find new activity type id
+   *
+   * @param $activityTypeName
+   * @return array|bool
+   */
+  protected function findNewActivityTypeIdWithName($activityTypeName) {
+    try {
+      return civicrm_api3('OptionValue', 'getvalue', array(
+        'option_group_id' => 'activity_type',
+        'name' => $activityTypeName,
+        'return' => 'value',
+      ));
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      return FALSE;
+    }
   }
 
   /**
@@ -619,5 +685,41 @@ abstract class CRM_Migration_ForumZfd {
     catch (CiviCRM_API3_Exception $ex) {
       return FALSE;
     }
+  }
+
+  /**
+   * Getter for assignee record type id for activity
+   *
+   * @return null
+   */
+  protected function getAssigneeRecordTypeId() {
+    return $this->_assigneeRecordTypeId;
+  }
+
+  /**
+   * Getter for source record type id for activity
+   *
+   * @return null
+   */
+  protected function getSourceRecordTypeId() {
+    return $this->_sourceRecordTypeId;
+  }
+
+  /**
+   * Getter for target record type id for activity
+   *
+   * @return null
+   */
+  protected function getTargetRecordTypeId() {
+    return $this->_targetRecordTypeId;
+  }
+
+  /**
+   * Getter for completed activity status id
+   *
+   * @return null
+   */
+  protected function getCompletedActivityStatusId() {
+    return $this->_completedActivityStatusId;
   }
 }

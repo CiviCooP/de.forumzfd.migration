@@ -19,7 +19,6 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
       try {
         $apiParams = $this->setApiParams();
         $created = civicrm_api3('Contact', 'create', $apiParams);
-        $this->addCustomData();
         return $created;
       } catch (CiviCRM_API3_Exception $ex) {
         $message = 'Could not add or update contact, error from API Contact create: '.$ex->getMessage().'. Source data is ';
@@ -228,13 +227,5 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
         $this->_sourceData['addressee_id'] = $defaultAddressee;
       }
     }
-  }
-
-  /**
-   * Method to add contact custom data if necessary
-   *
-   * @access private
-   */
-  private function addCustomData() {
   }
 }

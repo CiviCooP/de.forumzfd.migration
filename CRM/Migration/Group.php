@@ -125,4 +125,36 @@ class CRM_Migration_Group extends CRM_Migration_ForumZfd {
     }
   }
 
+  /**
+   * Method to add group custom data
+   */
+  public static function addCustomData() {
+    // specific logger
+    $logger = new CRM_Migration_Logger('group_custom_data');
+    // retrieve all custom tables for group
+    $query = "SELECT * FROM forumzfd_custom_group WHERE extends = %1";
+    $dao = CRM_Core_DAO::executeQuery($query, array(
+      1 => array('Group', 'String'),
+    ));
+    while ($dao->fetch()) {
+      $group = new CRM_Migration_Group('group_custom_data', $dao, $logger);
+      $group->createCustomGroupIfNotExists($group->_sourceData);
+      // get forumzfd_value table name using the original custom table name
+      $migrateTableName = $group->generateMigrateTableName($group->_sourceData['table_name']);
+      $daoCustomData = $group->getCustomDataDao($migrateTableName);
+      $columns = $group->getCustomDataColumns($daoCustomData, $group->_sourceData['table_name']);
+      while ($daoCustomData->fetch()) {
+        // find new group id
+        $newGroupId = $group->findNewGroupId($daoCustomData->entity_id);
+        if ($newGroupId) {
+          $dao->entity_id = $newGroupId;
+          $group->insertCustomData($daoCustomData, $group->_sourceData['table_name'], $columns);
+        } else {
+          $logger->logMessage('Error', 'Could not find or create a new contact for '.$daoCustomData->entity_id.' and table name '
+            .$group->_sourceData['table_name'].', custom data not migrated.');
+        }
+      }
+    }
+  }
+
 }
