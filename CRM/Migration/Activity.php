@@ -35,7 +35,7 @@ class CRM_Migration_Activity extends CRM_Migration_ForumZfd {
    */
   private function setApiParams() {
     $apiParams = $this->_sourceData;
-    $removes = array('id', 'activity_id', 'activity_type_name',);
+    $removes = array('id', 'activity_id', 'activity_type_name', 'original_id');
     foreach ($apiParams as $apiParamKey => $apiParamValue) {
       if (is_array($apiParamValue)) {
         unset($apiParams[$apiParamKey]);
@@ -58,6 +58,17 @@ class CRM_Migration_Activity extends CRM_Migration_ForumZfd {
         }
       } else {
         unset($apiParams['source_record_id']);
+      }
+    }
+    // find new campaign id if required
+    if (isset($apiParams['campaign_id']) && !empty($apiParams['campaign_id'])) {
+      $newCampaignId = $this->findNewCampaignId($apiParams['campaign_id']);
+      if ($newCampaignId) {
+        $apiParams['campaign_id'] = $newCampaignId;
+      } else {
+        $this->_logger->logMessage('Warning', 'No new campaign found for activity '.$this->_sourceData['id']
+          .' with campaign '.$apiParams['campaign_id'].', campaign removed from migrated activity');
+        unset($apiParams['campaign_id']);
       }
     }
     // get source, assignee(s) and target(s)
