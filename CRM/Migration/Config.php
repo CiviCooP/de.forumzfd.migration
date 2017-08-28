@@ -18,6 +18,7 @@ class CRM_Migration_Config {
   private $_defaultAddresseeIndividual = NULL;
   private $_defaultAddresseeOrganization = NULL;
   private $_defaultAddresseeHousehold = NULL;
+  private $_customFieldsToIgnore = array();
 
   /**
    * Constructor method
@@ -84,8 +85,22 @@ class CRM_Migration_Config {
     catch (CiviCRM_API3_Exception $ex) {
 
     }
+    $this->_customFieldsToIgnore = array(
+      'custom_group_table_name' => array('custom_field_column_name',),
+    );
   }
 
+  /**
+   * Getter for custom fields to ingore
+   *
+   * @param string $tableName
+   * @return array
+   */
+  public function getCustomFieldsToIgnore($tableName) {
+    if (isset($this->_customFieldsToIgnore[$tableName])) {
+      return $this->_customFieldsToIgnore($tableName);
+    }
+  }
   /**
    * Getter for default addressee id household
    * @return array|null

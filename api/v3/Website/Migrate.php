@@ -18,7 +18,7 @@ function civicrm_api3_website_Migrate($params) {
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migration_Logger($entity);
-  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_website WHERE is_processed = 0 ORDER BY contact_id LIMIT 1500');
+  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_website WHERE is_processed = 0 ORDER BY contact_id LIMIT 2500');
   while ($daoSource->fetch()) {
     $civiWebsite = new CRM_Migration_Website($entity, $daoSource, $logger);
     $newWebsite = $civiWebsite->migrate();

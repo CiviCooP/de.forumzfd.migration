@@ -18,7 +18,7 @@ function civicrm_api3_group_contact_Migrate($params) {
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migration_Logger($entity);
-  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_group_contact WHERE is_processed = 0 LIMIT 1000');
+  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_group_contact WHERE is_processed = 0 LIMIT 2000');
   while ($daoSource->fetch()) {
     $civiGroupContact = new CRM_Migration_GroupContact($entity, $daoSource, $logger);
     $newGroupContact = $civiGroupContact->migrate();

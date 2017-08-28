@@ -18,7 +18,7 @@ function civicrm_api3_phone_Migrate($params) {
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migration_Logger($entity);
-  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_phone WHERE is_processed = 0 ORDER BY contact_id LIMIT 1500');
+  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_phone WHERE is_processed = 0 ORDER BY contact_id LIMIT 2500');
   while ($daoSource->fetch()) {
     $civiPhone = new CRM_Migration_Phone($entity, $daoSource, $logger);
     $newPhone = $civiPhone->migrate();

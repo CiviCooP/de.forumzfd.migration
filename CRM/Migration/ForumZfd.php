@@ -461,38 +461,43 @@ abstract class CRM_Migration_ForumZfd {
    * @return int
    */
   protected function insertCustomData($dao, $tableName, $columns) {
+    // get columns to ignore
+    $ignoreColumns = CRM_Migration_Config::singleton()->getCustomFieldsToIgnore($tableName);
     // only insert if not exists yet
     if ($this->customDataExists($dao, $tableName, $columns) == FALSE) {
       $indexArray = array();
       $insertParams = array();
       $columnNames = array();
       foreach ($columns as $columnKey => $column) {
-        $property = $column['name'];
-        if (!empty($dao->$property)) {
-          $index = $columnKey + 1;
-          $indexArray[] = '%' . $index;
-          $columnNames[] = $column['name'];
-          $insertParams[$index] = array($dao->$property, $column['type']);
+        // only if custom field is not an ignore one
+        if (!in_array($column['name'], $ignoreColumns)) {
+          $property = $column['name'];
+          if (!empty($dao->$property)) {
+            $index = $columnKey + 1;
+            $indexArray[] = '%' . $index;
+            $columnNames[] = $column['name'];
+            $insertParams[$index] = array($dao->$property, $column['type']);
+          }
         }
-      }
-      $insertQuery = 'INSERT INTO ' . $tableName . ' (' . implode(', ', $columnNames) . ') VALUES(' . implode(', ', $indexArray) . ')';
-      try {
-        CRM_Core_DAO::executeQuery($insertQuery, $insertParams);
-        // after insert, set is_processed and new_id in migrate file
-        $query = 'SELECT * FROM ' . $tableName . ' ORDER BY ID DESC LIMIT 1';
-        $result = CRM_Core_DAO::executeQuery($query);
-        if ($result->fetch()) {
-          $migrateTableName = $this->generateMigrateTableName($tableName);
-          $updateQuery = 'UPDATE ' . $migrateTableName . ' SET is_processed = %1, new_id = %2 WHERE id = %3';
-          $updateParams = array(
-            1 => array(1, 'Integer',),
-            2 => array($result->id, 'Integer',),
-            3 => array($dao->id, 'Integer',),
-          );
-          CRM_Core_DAO::executeQuery($updateQuery, $updateParams);
+        $insertQuery = 'INSERT INTO ' . $tableName . ' (' . implode(', ', $columnNames) . ') VALUES(' . implode(', ', $indexArray) . ')';
+        try {
+          CRM_Core_DAO::executeQuery($insertQuery, $insertParams);
+          // after insert, set is_processed and new_id in migrate file
+          $query = 'SELECT * FROM ' . $tableName . ' ORDER BY ID DESC LIMIT 1';
+          $result = CRM_Core_DAO::executeQuery($query);
+          if ($result->fetch()) {
+            $migrateTableName = $this->generateMigrateTableName($tableName);
+            $updateQuery = 'UPDATE ' . $migrateTableName . ' SET is_processed = %1, new_id = %2 WHERE id = %3';
+            $updateParams = array(
+              1 => array(1, 'Integer',),
+              2 => array($result->id, 'Integer',),
+              3 => array($dao->id, 'Integer',),
+            );
+            CRM_Core_DAO::executeQuery($updateQuery, $updateParams);
+          }
+        } catch (Exception $ex) {
+          $this->_logger->logMessage('Warning', 'Could not add custom data in table ' . $tableName . ', error from CRM_Core_DAO: ' . $ex->getMessage());
         }
-      } catch (Exception $ex) {
-        $this->_logger->logMessage('Warning', 'Could not add custom data in table ' . $tableName . ', error from CRM_Core_DAO: ' . $ex->getMessage());
       }
     }
   }
@@ -637,7 +642,7 @@ abstract class CRM_Migration_ForumZfd {
    */
   protected function createCustomField($customGroupName, $extends, $sourceCustomFields) {
     // find new custom group
-    $query = "SELECT id FROM forumzfd_civicrm.civicrm_custom_group WHERE extends = %1 AND name = %2";
+    $query = "SELECT id FROM civicrm_custom_group WHERE extends = %1 AND name = %2";
     $newCustomGroupId = CRM_Core_DAO::singleValueQuery($query, array(
       1 => array($extends, 'String'),
       2 => array($customGroupName, 'String'),
