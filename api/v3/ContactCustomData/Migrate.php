@@ -22,8 +22,11 @@ function civicrm_api3_contact_custom_data_Migrate($params) {
   );
   $dao = CRM_Core_DAO::executeQuery($query, $queryParams);
   while ($dao->fetch()) {
-    $contactCustomData = new CRM_Migration_ContactCustomData($entity, $dao, $logger);
-    $contactCustomData->migrate();
+    // migrate only if target table does not exist yet
+    if (!CRM_Core_DAO::checkTableExists($dao->table_name)) {
+      $contactCustomData = new CRM_Migration_ContactCustomData($entity, $dao, $logger);
+      $contactCustomData->migrate();
+    }
   }
   $returnValues[] = 'All custom data for contacts migrated to CiviCRM, check log for errors';
   return civicrm_api3_create_success($returnValues, $params, 'ContactCustomData', 'Migrate');
