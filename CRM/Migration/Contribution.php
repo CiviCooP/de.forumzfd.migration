@@ -89,8 +89,17 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
     if (!empty($this->_sourceData['campaign_id'])) {
       $this->_contributionData['campaign_id'] = $this->findNewCampaignId($this->_sourceData['campaign_id']);
     }
-    if (!empty($this->_sourceData['payment_instrument_id'])) {
-      $this->_contributionData['payment_instrument_id'] = $this->_sourceData['payment_instrument_id'];
+    $replacePaymentInstrumentIds = array(
+      6 => 3,
+      7 => 9,
+      8 => 10,
+    );
+    if (array_key_exists($this->_sourceData['payment_instrument_id'], $replacePaymentInstrumentIds)) {
+      $this->_contributionData['payment_instrument_id'] = $replacePaymentInstrumentIds[$this->_sourceData['payment_instrument_id']];
+    } else {
+      if (!empty($this->_sourceData['payment_instrument_id'])) {
+        $this->_contributionData['payment_instrument_id'] = $this->_sourceData['payment_instrument_id'];
+      }
     }
     if (!empty($this->_sourceData['check_number'])) {
       $this->_contributionData['check_number'] = $this->_sourceData['check_number'];
