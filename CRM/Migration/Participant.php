@@ -45,6 +45,36 @@ class CRM_Migration_Participant extends CRM_Migration_ForumZfd {
         unset($apiParams[$key]);
       }
     }
+    // replace participant_status_type if required
+    $replaceStatusIds = array(
+      1 => 22,
+      2 => 1,
+      4 => 4,
+      5 => 18,
+      6 => 19,
+      7 => 7,
+      8 => 17,
+      10 => 7,
+      12 => 24,
+      13 => 13,
+      14 => 19,
+      16 => 6,
+      19 => 23,
+      20 => 11,
+      21 => 14,
+      22 => 21,
+      23 => 20,
+      25 => 25,
+      26 => 26,
+    );
+    if (isset($replaceStatusIds[$apiParams['status_id']])) {
+      $apiParams['status_id'] = $replaceStatusIds[$apiParams['status_id']];
+    } else {
+      $apiParams['status_id'] = 3;
+      $this->_logger->logMessage('Warning', 'Source participant '.$this->_sourceData['id'].' has status '
+        .$apiParams['status_id']. ', set to default of 3 (no show)');
+    }
+
     return $apiParams;
   }
 
@@ -61,6 +91,11 @@ class CRM_Migration_Participant extends CRM_Migration_ForumZfd {
     }
     if (empty($this->_sourceData['event_id'])) {
       $this->_logger->logMessage('Error', 'Source participant '.$this->_sourceData['id'].' does not have an event_id, not migrated');
+      return FALSE;
+    }
+    // ignore if status = TeilnahmeMV
+    if ($this->_sourceData['status_id'] == 27) {
+      $this->_logger->logMessage('Warning', 'Source participant '.$this->_sourceData['id'].' has status TeilnahmeMV, not migrated');
       return FALSE;
     }
     // new contact id has to exist
