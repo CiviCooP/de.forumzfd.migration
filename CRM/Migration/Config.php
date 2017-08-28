@@ -98,7 +98,9 @@ class CRM_Migration_Config {
    */
   public function getCustomFieldsToIgnore($tableName) {
     if (isset($this->_customFieldsToIgnore[$tableName])) {
-      return $this->_customFieldsToIgnore($tableName);
+      return $this->_customFieldsToIgnore[$tableName];
+    } else {
+      return $this->_customFieldsToIgnore;
     }
   }
   /**

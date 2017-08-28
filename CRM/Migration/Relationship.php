@@ -54,6 +54,10 @@ class CRM_Migration_Relationship extends CRM_Migration_ForumZfd {
         unset($apiParams[$key]);
       }
     }
+    // replace employee relationship type id
+    if ($apiParams['relationship_type_id'] == 4) {
+      $apiParams['relationship_type_id'] = 5;
+    }
     return $apiParams;
   }
 
