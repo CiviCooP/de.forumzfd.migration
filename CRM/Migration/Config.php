@@ -18,6 +18,7 @@ class CRM_Migration_Config {
   private $_defaultAddresseeIndividual = NULL;
   private $_defaultAddresseeOrganization = NULL;
   private $_defaultAddresseeHousehold = NULL;
+  private $_defaultFinancialTypeId = NULL;
   private $_customFieldsToIgnore = array();
 
   /**
@@ -27,6 +28,10 @@ class CRM_Migration_Config {
    */
   function __construct($context) {
     try {
+      $this->_defaultFinancialTypeId = civicrm_api3('FinancialType', 'getvalue', array(
+        'name'=> 'fall-back migration',
+        'return' => 'id',
+      ));
       $this->_defaultEmailHousehold = civicrm_api3('OptionValue', 'getvalue', array(
         'option_group_id' => 'email_greeting',
         'filter'=> 2,
@@ -103,6 +108,15 @@ class CRM_Migration_Config {
       return $this->_customFieldsToIgnore;
     }
   }
+
+  /**
+   * Getter for default financial type id
+   * @return array|null
+   */
+  public function getDefaultFinancialTypeId() {
+    return $this->_defaultFinancialTypeId;
+  }
+
   /**
    * Getter for default addressee id household
    * @return array|null

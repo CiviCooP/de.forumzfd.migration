@@ -81,7 +81,7 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
   private function generateContributionData() {
     $this->_contributionData = array(
       'contact_id' => $this->_sourceData['new_contact_id'],
-      'financial_type_id' => $this->_sourceData['financial_type_id'],
+      'financial_type_id' => $this->convertFinancialType($this->_sourceData['financial_type_id']),
       'receive_date' => $this->_sourceData['receive_date'],
       'currency' => $this->_sourceData['currency'],
       'contribution_status_id' => $this->_sourceData['contribution_status_id'],

@@ -592,10 +592,13 @@ abstract class CRM_Migration_ForumZfd {
         if ($newContactId) {
           $createParams['created_id'] = $newContactId;
         } else {
-          $createParams['created_id'] = 1;
+          $createParams['created_id'] = CRM_Core_Session::singleton()->get('userID');;
         }
       } else {
-        $createParams['created_id'] = 1;
+        $createParams['created_id'] = CRM_Core_Session::singleton()->get('userID');
+      }
+      if (!isset($createParams['created_date'])) {
+        $createParams['created_date'] = date('Ymd');
       }
       try {
         $customGroup = civicrm_api3('CustomGroup', 'create', $createParams);
@@ -620,7 +623,6 @@ abstract class CRM_Migration_ForumZfd {
       1 => array($customGroupName, 'String'),
       2 => array($extends, 'String'),
     ));
-
     if ($sourceCustomGroupId) {
       $query = "SELECT * FROM forumzfd_custom_field WHERE custom_group_id = %1";
       $sourceCustomFields = CRM_Core_DAO::executeQuery($query, array(
@@ -726,5 +728,44 @@ abstract class CRM_Migration_ForumZfd {
    */
   protected function getCompletedActivityStatusId() {
     return $this->_completedActivityStatusId;
+  }
+
+  /**
+   * Method to get the new financial type id with the old one
+   *
+   * @param $financialTypeId
+   * @return array|null
+   */
+  protected function convertFinancialType($financialTypeId) {
+    $newFinancialTypeId = CRM_Migration_Config::singleton()->getDefaultFinancialTypeId();
+    $sourceFinancialTypes = array(
+      1 => 'Spende',
+      2 => 'Mitgliedsbeitrag',
+      4 => 'Teilnahmegebür',
+      5 => 'Sachzuwendung',
+      6 => 'Friedenslaufspende',
+      7 => 'Förderbeitrag',
+      8 => 'Mitgliedsbeitrag-Organisationen',
+      9 => 'Friedenslauf-Sponsoring',
+      12 => 'Rücklastschrift',
+      13 => 'Lastschriftfehler',
+      16 => 'Geldauflage',
+      18 => 'Spende an Stiftung',
+      19 => 'Spende der Stiftung an e.V.'
+    );
+    if (isset($sourceFinancialTypes[$financialTypeId])) {
+      $params = array(
+        'name' => $sourceFinancialTypes[$financialTypeId],
+        'return' => 'id'
+      );
+      try {
+        $newFinancialTypeId = civicrm_api3('FinancialType', 'getvalue', $params);
+      }
+      catch (CiviCRM_API3_Exception $ex) {
+      }
+      return $newFinancialTypeId;
+    }
+
+
   }
 }
