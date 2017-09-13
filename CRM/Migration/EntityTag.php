@@ -49,7 +49,7 @@ class CRM_Migration_EntityTag extends CRM_Migration_ForumZfd {
    */
   private function setApiParams() {
     $apiParams = $this->_sourceData;
-    $removes = array('new_entity_tag_id', 'id', '*_options', 'is_processed');
+    $removes = array('id', '*_options', 'is_processed', 'tag_name');
     foreach ($this->_sourceData as $key => $value) {
       if (in_array($key, $removes)) {
         unset($apiParams[$key]);
@@ -58,6 +58,7 @@ class CRM_Migration_EntityTag extends CRM_Migration_ForumZfd {
         unset($apiParams[$key]);
       }
     }
+
     return $apiParams;
   }
 
@@ -68,22 +69,23 @@ class CRM_Migration_EntityTag extends CRM_Migration_ForumZfd {
    */
   public function validSourceData() {
     if (!isset($this->_sourceData['entity_id'])) {
-      $this->_logger->logMessage('Error', 'EntityTag has no entity_id, not migrated. Source data is '.implode(';', $this->_sourceData));
+      $this->_logger->logMessage('Error', 'EntityTag with id '.$this->_sourceData['id'].' has no entity_id, not migrated.');
       return FALSE;
     }
-
-    // new contact has to exist
-    $newContactId = $this->findNewContactId($this->_sourceData['entity_id']);
-    if (empty($newContactId)) {
-      $this->_logger->logMessage('Error', 'No new contact_id found for entity tag with id '.$this->_sourceData['id'].', entity tag not migrated');
-      return FALSE;
-    } else {
-      $this->_sourceData['entity_id'] = $newContactId;
-    }
-
     if (empty($this->_sourceData['tag_id'])) {
-      $this->_logger->logMessage('Error', 'EntityTag has no tag_id, not migrated. Source data is '.implode(';', $this->_sourceData));
+      $this->_logger->logMessage('Error', 'EntityTag with id '.$this->_sourceData['id'].' has no tag_id, not migrated.');
       return FALSE;
+    }
+    if (empty($this->_sourceData['tag_name'])) {
+      $this->_logger->logMessage('Error', 'EntityTag with id '.$this->_sourceData['id'].' has no tag_name, not migrated.');
+      return FALSE;
+    }
+    // get new tag id with tag name
+    $newTagId = $this->findNewTagIdWithName($this->_sourceData['tag_name']);
+    if ($newTagId) {
+      $this->_sourceData['tag_id'] = $newTagId;
+    } else {
+      $this->_logger->logMessage('Error', 'No new tag found for entity tag with id . '.$this->_sourceData['id'].', not migrated.');
     }
     return TRUE;
   }

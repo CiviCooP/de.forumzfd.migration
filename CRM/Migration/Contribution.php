@@ -44,15 +44,6 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
         .$this->_sourceData['id']);
       return FALSE;
     }
-    // find new contact
-    $newContactId = $this->findNewContactId($this->_sourceData['contact_id']);
-    if (empty($newContactId)) {
-      $this->_logger->logMessage('Error', 'No new contact found for contact '.$this->_sourceData['contact_id']
-        .' in contribution '.$this->_sourceData['id']);
-      return FALSE;
-    } else {
-      $this->_sourceData['new_contact_id'] = $newContactId;
-    }
 
     // find contribution status
     try {
@@ -80,7 +71,7 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
    */
   private function generateContributionData() {
     $this->_contributionData = array(
-      'contact_id' => $this->_sourceData['new_contact_id'],
+      'contact_id' => $this->_sourceData['contact_id'],
       'financial_type_id' => $this->convertFinancialType($this->_sourceData['financial_type_id']),
       'receive_date' => $this->_sourceData['receive_date'],
       'currency' => $this->_sourceData['currency'],

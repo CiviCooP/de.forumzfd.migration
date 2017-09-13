@@ -65,15 +65,6 @@ class CRM_Migration_Website extends CRM_Migration_ForumZfd {
       return FALSE;
     }
 
-    // new contact has to exist
-    $newContactId = $this->findNewContactId($this->_sourceData['contact_id']);
-    if (empty($newContactId)) {
-      $this->_logger->logMessage('Error', 'No new contact_id found for website with id '.$this->_sourceData['id'].', website not migrated');
-      return FALSE;
-    } else {
-      $this->_sourceData['contact_id'] = $newContactId;
-    }
-
     if (empty($this->_sourceData['url'])) {
       $this->_logger->logMessage('Error', 'Website has an empty url, website not migrated. Website id is '.$this->_sourceData['id']);
       return FALSE;

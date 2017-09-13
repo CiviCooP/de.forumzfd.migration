@@ -89,15 +89,6 @@ class CRM_Migration_GroupContact extends CRM_Migration_ForumZfd {
       $this->_logger->logMessage('Error', 'Source group contact '.$this->_sourceData['id'].' does not have an group id, not migrated');
       return FALSE;
     }
-    // new contact id has to exist
-    $newContactId = $this->findNewContactId($this->_sourceData['contact_id']);
-    if ($newContactId) {
-      $this->_apiParams['contact_id'] = $newContactId;
-    } else {
-      $this->_logger->logMessage('Error', 'Could not find a new contact for source group contact '.$this->_sourceData['id']
-        .' with old contact id '.$this->_sourceData['contact_id'].', not migrated');
-      return FALSE;
-    }
     // new group id has to exist if not 1
     if ($this->_sourceData['group_id'] != 1) {
       $newGroupId = $this->findNewGroupId($this->_sourceData['group_id']);

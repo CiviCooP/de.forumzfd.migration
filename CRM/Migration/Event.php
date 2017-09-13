@@ -34,15 +34,6 @@ class CRM_Migration_Event extends CRM_Migration_ForumZfd {
    * @return array
    */
   public function setApiParams() {
-    // find created contact if found
-    if (isset($this->_sourceData['created_id'])) {
-      $newContactId = $this->findNewContactId($this->_sourceData['created_id']);
-      if ($newContactId) {
-        $this->_sourceData['created_id'] = $newContactId;
-      } else {
-        unset($this->_sourceData['created_id']);
-      }
-    }
     // find campagn_id if required
     if (!empty($this->_sourceData['campaign_id'])) {
       $newCampaignId = $this->findNewCampaignId($this->_sourceData['campaign_id']);

@@ -98,15 +98,6 @@ class CRM_Migration_Participant extends CRM_Migration_ForumZfd {
       $this->_logger->logMessage('Warning', 'Source participant '.$this->_sourceData['id'].' has status TeilnahmeMV, not migrated');
       return FALSE;
     }
-    // new contact id has to exist
-    $newContactId = $this->findNewContactId($this->_sourceData['contact_id']);
-    if ($newContactId) {
-      $this->_sourceData['contact_id'] = $newContactId;
-    } else {
-      $this->_logger->logMessage('Error', 'Could not find a new contact id for '.$this->_sourceData['contact_id']
-        .' with participant '.$this->_sourceData['id'].', not migrated');
-      return FALSE;
-    }
     // new event_id has to exist
     $newEventId = $this->findNewEventId($this->_sourceData['event_id']);
     if ($newEventId) {
@@ -126,29 +117,12 @@ class CRM_Migration_Participant extends CRM_Migration_ForumZfd {
           .', no campaign added for migrated participant');
       }
     }
-    // if transferred_to_contact_id, find new or remove
-    if (isset($this->_sourceData['transferred_to_contact_id']) && !empty($this->_sourceData['transferred_to_contact_id'])) {
-      $newContactId = $this->findNewContactId($this->_sourceData['transferred_to_contact_id']);
-      if ($newContactId) {
-        $this->_sourceData['transferred_to_contact_id'] = $newContactId;
-      } else {
-        unset($this->_sourceData['transferred_to_contact_id']);
-      }
-    } else {
+    if (empty($this->_sourceData['transferred_to_contact_id'])) {
       unset($this->_sourceData['transferred_to_contact_id']);
     }
-    // if registered_by_id, find new or remove
-    if (isset($this->_sourceData['registered_by_id']) && !empty($this->_sourceData['registered_by_id'])) {
-      $newContactId = $this->findNewContactId($this->_sourceData['registered_by_id']);
-      if ($newContactId) {
-        $this->_sourceData['registered_by_id'] = $newContactId;
-      } else {
-        unset($this->_sourceData['registered_by_id']);
-      }
-    } else {
+    if (empty($this->_sourceData['registered_by_id'])) {
       unset($this->_sourceData['registered_by_id']);
     }
-    return TRUE;
   }
 
   /**

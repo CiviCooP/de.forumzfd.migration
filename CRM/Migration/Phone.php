@@ -79,15 +79,6 @@ class CRM_Migration_Phone extends CRM_Migration_ForumZfd {
       return FALSE;
     }
 
-    // new contact has to exist
-    $newContactId = $this->findNewContactId($this->_sourceData['contact_id']);
-    if (empty($newContactId)) {
-      $this->_logger->logMessage('Error', 'No new contact_id found for phone with id '.$this->_sourceData['id'].', phone not migrated');
-      return FALSE;
-    } else {
-      $this->_sourceData['contact_id'] = $newContactId;
-    }
-
     if (empty($this->_sourceData['phone'])) {
       $this->_logger->logMessage('Error', 'Phone with id '.$this->_sourceData['id'] .' has an empty phone number, Phone not migrated.');
       return FALSE;

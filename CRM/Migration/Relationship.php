@@ -45,7 +45,7 @@ class CRM_Migration_Relationship extends CRM_Migration_ForumZfd {
    */
   private function setApiParams() {
     $apiParams = $this->_sourceData;
-    $removes = array('new_relationship_id', 'id', 'new_relationship_type_id', 'is_processed', 'case_id');
+    $removes = array('new_relationship_id', 'name_a_b', 'name_b_a', 'id', 'is_processed', 'case_id');
     foreach ($this->_sourceData as $key => $value) {
       if (in_array($key, $removes)) {
         unset($apiParams[$key]);
@@ -104,35 +104,37 @@ class CRM_Migration_Relationship extends CRM_Migration_ForumZfd {
       return FALSE;
     }
 
-    // find new contacs for contact_id_a and contact_id_b
-    $newContactIdA = $this->findNewContactId($this->_sourceData['contact_id_a']);
-    if ($newContactIdA) {
-      $this->_sourceData['contact_id_a'] = $newContactIdA;
+    // find new relationship type id with name_a_b and name_b_a from source data
+    $newRelationshipTypeId = $this->findRelationshipTypeIdWithNames();
+    if ($newRelationshipTypeId) {
+      $this->_sourceData['relationship_type_id'] = $newRelationshipTypeId;
     } else {
-      $this->_logger->logMessage('Error', 'Could not find a new contact for contact_id_a '.$this->_sourceData['contact_id_a']
-        .' with source relationship '.$this->_sourceData['id'].' relationship not migrated.');
+      $this->_logger->logMessage('Error', 'Could not find a relationship type with name_a_b '.$this->_sourceData['name_a_b']
+        .' and name_b_a '.$this->_sourceData['name_b_a'].', relationship not migrated.');
       return FALSE;
-    }
-    $newContactIdB = $this->findNewContactId($this->_sourceData['contact_id_b']);
-    if ($newContactIdB) {
-      $this->_sourceData['contact_id_b'] = $newContactIdB;
-    } else {
-      $this->_logger->logMessage('Error', 'Could not find a new contact for contact_id_b '.$this->_sourceData['contact_id_b']
-        .' with source relationship '.$this->_sourceData['id'].' relationship not migrated.');
-      return FALSE;
-    }
-
-    if (!isset($this->_sourceData['new_relationship_type_id']) || empty($this->_sourceData['new_relationship_type_id'])) {
-      $this->_logger->logMessage('Error', 'Could not find a new relationship type id for relationship_type_id '.$this->_sourceData['relationship_type_id']
-        .' with source relationship '.$this->_sourceData['id'].' relationship not migrated.');
-      return FALSE;
-    } else {
-      $this->_sourceData['relationship_type_id'] = $this->_sourceData['new_relationship_type_id'];
     }
 
     if (!$this->validRelationshipType()) {
       return FALSE;
     }
     return TRUE;
+  }
+
+  /**
+   * Method to find the new relationship type id
+   *
+   * return int|bool
+   */
+  private function findRelationshipTypeIdWithNames() {
+    try {
+      return civicrm_api3('RelationshipType', 'getvalue', array(
+        'name_a_b' => $this->_sourceData['name_a_b'],
+        'name_b_a' => $this->_sourceData['name_b_a'],
+        'return' => 'id',
+      ));
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+    }
+    return FALSE;
   }
 }

@@ -177,7 +177,7 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
         }
       }
       catch (CiviCRM_API3_Exception $ex) {
-        $this->_logger->logMessage('Warning', 'Error from API OptionValue getcount in '.__METHOD__.' for email_greeting_id '
+        $this->_logger->logMessage('Warning', 'From API OptionValue getcount in '.__METHOD__.' for email_greeting_id '
           .$this->_sourceData['email_greeting_id'].', contact with name '.$this->_sourceData['display_name'].' and contact type '
           .$this->_sourceData['contact_type'].', replaced with the default email greeting id '.$defaultEmail);
         $this->_sourceData['email_greeting_id'] = $defaultEmail;
@@ -199,7 +199,7 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
         }
       }
       catch (CiviCRM_API3_Exception $ex) {
-        $this->_logger->logMessage('Warning', 'Error from API OptionValue getcount in '.__METHOD__.' for postal_greeting_id '
+        $this->_logger->logMessage('Warning', 'From API OptionValue getcount in '.__METHOD__.' for postal_greeting_id '
           .$this->_sourceData['postal_greeting_id'].', contact with name '.$this->_sourceData['display_name'].' and contact type '
           .$this->_sourceData['contact_type'].', replaced with the default postal greeting id '.$defaultPostal);
         $this->_sourceData['postal_greeting_id'] = $defaultPostal;
@@ -221,7 +221,7 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
         }
       }
       catch (CiviCRM_API3_Exception $ex) {
-        $this->_logger->logMessage('Warning', 'Error from API OptionValue getcount in '.__METHOD__.' for addressee_id '
+        $this->_logger->logMessage('Warning', 'From API OptionValue getcount in '.__METHOD__.' for addressee_id '
           .$this->_sourceData['addressee_id'].', contact with name '.$this->_sourceData['display_name'].' and contact type '
           .$this->_sourceData['contact_type'].', replaced with the default addressee id '.$defaultAddressee);
         $this->_sourceData['addressee_id'] = $defaultAddressee;

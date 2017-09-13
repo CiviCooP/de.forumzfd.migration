@@ -58,26 +58,12 @@ class CRM_Migration_Campaign extends CRM_Migration_ForumZfd
       $apiParams['parent_id'] = $this->findNewCampaignId($apiParams['parent_id']);
     }
     // update created_id
-    if (isset($apiParams['created_id']) && !empty($apiParams['created_id'])) {
-      $newContactId = $this->findNewContactId($apiParams['created_id']);
-      if ($newContactId) {
-        $apiParams['created_id'] = $newContactId;
-      } else {
-        $apiParams['created_id'] = 1;
-      }
-    } else {
-      $apiParams['created_id'] = 1;
+    if (!isset($apiParams['created_id']) || empty($apiParams['created_id'])) {
+      $apiParams['created_id'] = 3;
     }
     // update last_modified_id
-    if (isset($apiParams['last_modified_id']) && !empty($apiParams['last_modified_id'])) {
-      $newContactId = $this->findNewContactId($apiParams['last_modified_id']);
-      if ($newContactId) {
-        $apiParams['last_modified_id'] = $newContactId;
-      } else {
-        $apiParams['last_modified_id'] = 1;
-      }
-    } else {
-      $apiParams['last_modified_id'] = 1;
+    if (!isset($apiParams['last_modified_id']) || empty($apiParams['last_modified_id'])) {
+      $apiParams['last_modified_id'] = 3;
     }
     return $apiParams;
   }

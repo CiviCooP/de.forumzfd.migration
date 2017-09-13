@@ -21,15 +21,7 @@ class CRM_Migration_ContactCustomData extends CRM_Migration_ForumZfd {
       $dao = $this->getCustomDataDao($migrateTableName);
       $columns = $this->getCustomDataColumns($dao, $this->_sourceData['table_name']);
       while ($dao->fetch()) {
-        // find new contact id
-        $newContactId = $this->findNewContactId($dao->entity_id);
-        if ($newContactId) {
-          $dao->entity_id = $newContactId;
-          $this->insertCustomData($dao, $this->_sourceData['table_name'], $columns);
-        } else {
-          $this->_logger->logMessage('Error', 'Could not find or create a new contact for ' . $dao->entity_id . ' and table name '
-            . $this->_sourceData['table_name'] . ', custom data not migrated.');
-        }
+        $this->insertCustomData($dao, $this->_sourceData['table_name'], $columns);
       }
     }
     return FALSE;

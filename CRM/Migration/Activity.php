@@ -35,7 +35,7 @@ class CRM_Migration_Activity extends CRM_Migration_ForumZfd {
    */
   private function setApiParams() {
     $apiParams = $this->_sourceData;
-    $removes = array('id', 'activity_id', 'activity_type_name', 'original_id');
+    $removes = array('id',  'original_id');
     foreach ($apiParams as $apiParamKey => $apiParamValue) {
       if (is_array($apiParamValue)) {
         unset($apiParams[$apiParamKey]);
@@ -113,10 +113,7 @@ class CRM_Migration_Activity extends CRM_Migration_ForumZfd {
           2 => array($this->getSourceRecordTypeId(), 'Integer'),
         ));
         if (!empty($sourceContactId)) {
-          $newContactId = $this->findNewContactId($sourceContactId);
-          if ($newContactId) {
-            return $newContactId;
-          }
+            return $sourceContactId;
         }
         break;
       case 'target':
@@ -133,10 +130,7 @@ class CRM_Migration_Activity extends CRM_Migration_ForumZfd {
         2 => array($recordType, 'Integer'),
       ));
       while ($dao->fetch()) {
-        $newContactId = $this->findNewContactId($dao->contact_id);
-        if ($newContactId) {
-          $contactIds[] = $newContactId;
-        }
+        $contactIds[] = $dao->contact_id;
       }
     }
     return $contactIds;

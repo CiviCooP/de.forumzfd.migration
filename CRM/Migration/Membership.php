@@ -88,14 +88,6 @@ class CRM_Migration_Membership extends CRM_Migration_ForumZfd {
     if (!$this->validMembershipType() || !$this->validMembershipStatus()) {
       return FALSE;
     }
-    // find new contact id
-    $newContactId = $this->findNewContactId($this->_sourceData['contact_id']);
-    if ($newContactId) {
-      $this->_sourceData['contact_id'] = $newContactId;
-    } else {
-      $this->_logger->logMessage('Error', 'No new contact found for membership '.$this->_sourceData['id'].', not migrated');
-      return FALSE;
-    }
     // find new membership type id
     switch($this->_sourceData['membership_type_id']) {
       case 2:

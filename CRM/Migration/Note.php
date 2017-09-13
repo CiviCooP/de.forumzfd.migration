@@ -39,12 +39,6 @@ class CRM_Migration_Note extends CRM_Migration_ForumZfd {
    */
   private function setApiParams() {
     $apiParams = $this->_sourceData;
-    $newContactId = $this->findNewContactId($apiParams['contact_id']);
-    if ($newContactId) {
-      $apiParams['contact_id'] = $newContactId;
-    } else {
-      unset($apiParams['contact_id']);
-    }
     $removes = array('new_note_id', 'id', '*_options', 'is_processed');
     foreach ($this->_sourceData as $key => $value) {
       if (in_array($key, $removes)) {
@@ -70,13 +64,6 @@ class CRM_Migration_Note extends CRM_Migration_ForumZfd {
     // entity_id should exists, depending on entity_table
     switch ($this->_sourceData['entity_table']) {
       case 'civicrm_contact':
-        $newContactId = $this->findNewContactId($this->_sourceData['entity_id']);
-        if ($newContactId) {
-          $this->_sourceData['entity_id'] = $newContactId;
-        } else {
-          $this->_logger->logMessage('Error', 'Could not find new contact for note with id '.$this->_sourceData['id'].', not migrated');
-          return FALSE;
-        }
         break;
       case 'civicrm_contribution':
         $newContributionId = $this->findNewContribution($this->_sourceData['entity_id']);

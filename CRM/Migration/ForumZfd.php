@@ -367,6 +367,24 @@ abstract class CRM_Migration_ForumZfd {
   }
 
   /**
+   * Method to find new tag id with name
+   *
+   * @param $tagName
+   * @return array|bool
+   */
+  protected function findNewTagIdWithName($tagName) {
+    try {
+      return civicrm_api3('Tag', 'getvalue', array(
+        'name' => $tagName,
+        'return' => 'id',
+      ));
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      return FALSE;
+    }
+  }
+
+  /**
    * Method to count the financial type
    *
    * @param $financialTypeId
@@ -587,14 +605,7 @@ abstract class CRM_Migration_ForumZfd {
       }
       unset($createParams['new_custom_group_id']);
       // get new contact id for created if possible
-      if (isset($createParams['created_id']) && !empty($createParams['created_id'])) {
-        $newContactId = $this->findNewContactId($createParams['created_id']);
-        if ($newContactId) {
-          $createParams['created_id'] = $newContactId;
-        } else {
-          $createParams['created_id'] = CRM_Core_Session::singleton()->get('userID');;
-        }
-      } else {
+      if (!isset($createParams['created_id']) ||empty($createParams['created_id'])) {
         $createParams['created_id'] = CRM_Core_Session::singleton()->get('userID');
       }
       if (!isset($createParams['created_date'])) {
