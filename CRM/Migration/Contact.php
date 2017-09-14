@@ -40,9 +40,10 @@ class CRM_Migration_Contact extends CRM_Migration_ForumZfd {
     if (isset($apiParams['id'])) {
       unset ($apiParams['id']);
     }
-    if (empty($apiParams['external_identifier'])) {
+    if (isset($apiParams['external_identifier'])) {
       unset($apiParams['external_identifier']);
     }
+
     foreach ($apiParams as $paramKey => $paramValue) {
       if (is_array($paramValue)) {
         unset($apiParams[$paramKey]);
