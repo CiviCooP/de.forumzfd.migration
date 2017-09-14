@@ -18,6 +18,8 @@ function civicrm_api3_contact_Migrate($params) {
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migration_Logger($entity);
+  // update auto increment so it does not conflict
+  CRM_Core_DAO::executeQuery('ALTER TABLE civicrm_contact AUTO_INCREMENT = 125000');
   $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_contact WHERE is_processed = 0 ORDER BY id LIMIT 1500');
   while ($daoSource->fetch()) {
     $civiContact = new CRM_Migration_Contact($entity, $daoSource, $logger);
