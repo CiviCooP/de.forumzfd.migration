@@ -18,7 +18,7 @@ function civicrm_api3_activity_Migrate($params) {
   $createCount = 0;
   $logCount = 0;
   $logger = new CRM_Migration_Logger($entity);
-  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_activity WHERE is_processed = 0 ORDER BY id LIMIT 25');
+  $daoSource = CRM_Core_DAO::executeQuery('SELECT * FROM forumzfd_activity WHERE is_processed = 0 ORDER BY id LIMIT 2500');
   while ($daoSource->fetch()) {
     $civiActivity = new CRM_Migration_Activity($entity, $daoSource, $logger);
     $newActivity = $civiActivity->migrate();
