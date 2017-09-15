@@ -123,6 +123,7 @@ class CRM_Migration_Participant extends CRM_Migration_ForumZfd {
     if (empty($this->_sourceData['registered_by_id'])) {
       unset($this->_sourceData['registered_by_id']);
     }
+    return TRUE;
   }
 
   /**
