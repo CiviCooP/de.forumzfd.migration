@@ -88,22 +88,42 @@ class CRM_Migration_Membership extends CRM_Migration_ForumZfd {
     if (!$this->validMembershipType() || !$this->validMembershipStatus()) {
       return FALSE;
     }
-    // find new membership type id
-    switch($this->_sourceData['membership_type_id']) {
+    // set new membership types
+    try {
+      $mitgliedTypeId = civicrm_api3('MembershipType', 'getvalue', array(
+        'return' => 'id',
+        'name' => 'Mitglied',
+      ));
+      $mitgliedsOrganisationTypeId = civicrm_api3('MembershipType', 'getvalue', array(
+        'return' => 'id',
+        'name' => 'Mitgliedsorganisation',
+      ));
+      $fordererTypeId = civicrm_api3('MembershipType', 'getvalue', array(
+        'return' => 'id',
+        'name' => 'Förderer',
+      ));
+      $altTypeId = civicrm_api3('MembershipType', 'getvalue', array(
+        'return' => 'id',
+        'name' => 'Alt',
+      ));
+    } catch (CiviCRM_API3_Exception $ex) {
+      $this->_logger->logMessage('Error', 'Could not find membership type for either Alt, Mitglied, Förderer or Mitgliedorganisation. Check you set up!');
+      return FALSE;
+    }
+    // find new membership type id based on name
+    switch ($this->_sourceData['membership_type_id']) {
+      case 1:
+        $this->_sourceData['membership_type_id'] = $mitgliedTypeId;
+        break;
       case 2:
-        $this->_sourceData['membership_type_id'] = 4;
-        break;
-      case 3:
-        $this->_sourceData['membership_type_id'] = 7;
-        break;
-      case 5:
-        $this->_sourceData['membership_type_id'] = 9;
+        $this->_sourceData['membership_type_id'] = $fordererTypeId;
         break;
       case 6:
-        $this->_sourceData['membership_type_id'] = 10;
+        $this->_sourceData['membership_type_id'] = $mitgliedsOrganisationTypeId;
         break;
-      case 7:
-        $this->_sourceData['membership_type_id'] = 11;
+      default:
+        $this->_sourceData['membership_type_id'] = $altTypeId;
+        break;
     }
     return TRUE;
   }
