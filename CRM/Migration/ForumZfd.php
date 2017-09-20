@@ -621,6 +621,7 @@ abstract class CRM_Migration_ForumZfd {
       }
     }
   }
+
   /**
    * Method to find or create custom fields for custom group
    *
@@ -640,6 +641,10 @@ abstract class CRM_Migration_ForumZfd {
         1 => array($sourceCustomGroupId, 'Integer'),
       ));
       while ($sourceCustomFields->fetch()) {
+        // get new option group id if required
+        if (isset($sourceCustomFields->option_group_id) && !empty($sourceCustomFields->option_group_id)) {
+          $sourceCustomFields->option_group_id = CRM_Migration_CustomOptionData::getNewOptionGroupIdForCustomField($sourceCustomFields->option_group_id);
+        }
         if ($this->customFieldExists($customGroupName, $sourceCustomFields->name) == FALSE) {
           $this->createCustomField($customGroupName, $extends, $sourceCustomFields);
         }
@@ -776,6 +781,8 @@ abstract class CRM_Migration_ForumZfd {
       }
       return $newFinancialTypeId;
     }
+  }
+  public static function createOptionGroupForCustomField($optionGroupId) {
 
 
   }
