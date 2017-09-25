@@ -62,6 +62,34 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
         .' for contribution ID '.$this->_sourceData['id'].', not migrated.');
       return FALSE;
     }
+    try {
+      $newFinancialTypeId = civicrm_api3('FinancialType', 'gevalue', array(
+        'name' => $this->_sourceData['financial_type_name'],
+        'return' => 'id',
+      ));
+      if ($newFinancialTypeId) {
+        $this->_sourceData['financial_type_id'] = $newFinancialTypeId;
+      } else {
+        switch ($this->_sourceData['financial_type_name']) {
+          case 'Spende':
+            $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getUeberweisungFinancialTypeId();
+            break;
+          default:
+            $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getLastschriftFinancialTypeId();
+            break;
+        }
+      }
+    }
+    catch (CiviCRM_API3_Exception $ex) {
+      switch ($this->_sourceData['financial_type_name']) {
+        case 'Spende':
+          $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getUeberweisungFinancialTypeId();
+          break;
+        default:
+          $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getLastschriftFinancialTypeId();
+          break;
+      }
+    }
     return TRUE;
   }
 
@@ -72,7 +100,7 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
   private function generateContributionData() {
     $this->_contributionData = array(
       'contact_id' => $this->_sourceData['contact_id'],
-      'financial_type_id' => $this->convertFinancialType($this->_sourceData['financial_type_id']),
+      'financial_type_id' => $this->_sourceData['financial_type_id'],
       'receive_date' => $this->_sourceData['receive_date'],
       'currency' => $this->_sourceData['currency'],
       'contribution_status_id' => $this->_sourceData['contribution_status_id'],
@@ -88,10 +116,21 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
     if (array_key_exists($this->_sourceData['payment_instrument_id'], $replacePaymentInstrumentIds)) {
       $this->_contributionData['payment_instrument_id'] = $replacePaymentInstrumentIds[$this->_sourceData['payment_instrument_id']];
     } else {
-      if (!empty($this->_sourceData['payment_instrument_id'])) {
-        $this->_contributionData['payment_instrument_id'] = $this->_sourceData['payment_instrument_id'];
+      $this->_contributionData['payment_instrument_id'] = $this->_sourceData['payment_instrument_id'];
+    }
+    // if no payment_instrument_id or if non-existent payment_instrument_id, use defaults
+    if (empty($this->_contributionData['payment_instrument_id']) || $this->_contributionData['payment_instrument_id'] == 'null') {
+      $this->useDefaultPaymentInstrument();
+    } else {
+      $count = civicrm_api3('OptionValue', 'getcount', array(
+        'value' => $this->_contributionData['payment_instrument_id'],
+        'option_group_id' => 'payment_instrument',
+      ));
+      if ($count == 0) {
+        $this->useDefaultPaymentInstrument();
       }
     }
+
     if (!empty($this->_sourceData['check_number'])) {
       $this->_contributionData['check_number'] = $this->_sourceData['check_number'];
     }
@@ -107,6 +146,18 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
       if (isset($this->_sourceData[$emptyCheck]) && !empty($this->_sourceData[$emptyCheck])) {
         $this->_contributionData[$emptyCheck] = $this->_sourceData[$emptyCheck];
       }
+    }
+    return;
+  }
+
+  /**
+   * Method to set the default payment instrument id based on financial type
+   */
+  private function useDefaultPaymentInstrument() {
+    if ($this->_contributionData['financial_type_id'] == CRM_Migration_Config::singleton()->getSpendeFinancialTypeId()) {
+      $this->_contributionData['payment_instrument_id'] = CRM_Migration_Config::singleton()->getUeberweisungPaymentInstrumentId();
+    } else {
+      $this->_contributionData['payment_instrument_id'] = CRM_Migration_Config::singleton()->getLastschriftPaymentInstrumentId();
     }
     return;
   }
