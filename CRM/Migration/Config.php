@@ -18,8 +18,10 @@ class CRM_Migration_Config {
   private $_defaultAddresseeIndividual = NULL;
   private $_defaultAddresseeOrganization = NULL;
   private $_defaultAddresseeHousehold = NULL;
-  private $_defaultFinancialTypeId = NULL;
   private $_customFieldsToIgnore = array();
+  private $_ueberweisungPaymentInstrumentId = NULL;
+  private $_lastschriftPaymentInstrumentId = NULL;
+  private $_spendeFinancialTypeId = NULL;
 
   /**
    * Constructor method
@@ -27,11 +29,21 @@ class CRM_Migration_Config {
    * @param string $context
    */
   function __construct($context) {
+    $this->_ueberweisungPaymentInstrumentId = civicrm_api3('OptionValue', 'getvalue', array(
+      'name' => "Überweisung",
+      'option_group_id' => 'payment_instrument',
+      'return' => 'value',
+    ));
+    $this->_lastschriftPaymentInstrumentId = civicrm_api3('OptionValue', 'getvalue', array(
+      'name' => "Lastschrifteinzug",
+      'option_group_id' => 'payment_instrument',
+      'return' => 'value',
+    ));
+    $this->_spendeFinancialTypeId = civicrm_api3('FinancialType', 'getvalue', array(
+      'name' => 'Spende',
+      'return' => 'id',
+    ));
     try {
-      $this->_defaultFinancialTypeId = civicrm_api3('FinancialType', 'getvalue', array(
-        'name'=> 'fall-back migration',
-        'return' => 'id',
-      ));
       $this->_defaultEmailHousehold = civicrm_api3('OptionValue', 'getvalue', array(
         'option_group_id' => 'email_greeting',
         'filter'=> 2,
@@ -110,11 +122,27 @@ class CRM_Migration_Config {
   }
 
   /**
-   * Getter for default financial type id
+   * Getter for spende financial type id
    * @return array|null
    */
-  public function getDefaultFinancialTypeId() {
-    return $this->_defaultFinancialTypeId;
+  public function getSpendeFinancialTypeId() {
+    return $this->_spendeFinancialTypeId;
+  }
+
+  /**
+   * Getter for default payment instrument id for lastschrifteinzug
+   * @return array|null
+   */
+  public function getLastschriftPaymentInstrumentId() {
+    return $this->_lastschriftPaymentInstrumentId;
+  }
+
+  /**
+   * Getter for default payment instrument id for ueberweisung
+   * @return array|null
+   */
+  public function getUeberweisungPaymentInstrumentId() {
+    return $this->_ueberweisungPaymentInstrumentId;
   }
 
   /**
