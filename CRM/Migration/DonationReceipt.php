@@ -13,11 +13,17 @@ class CRM_Migration_DonationReceipt {
   private $_donationReceiptTable = NULL;
   private $_itemTable = NULL;
   private $_logger = NULL;
+  private $_receiptIdColumn = NULL;
+  private $_dateFromColumn = NULL;
+  private $_dateToColumn = NULL;
 
   /**
    * CRM_Migration_DonationReceipt constructor.
+   *
+   * @param string $entityName
+   * @throws Exception when error from api
    */
-  public function __construct() {
+  public function __construct($entityName) {
     // get table names
     try {
       $this->_donationReceiptTable = civicrm_api3('CustomGroup', 'getvalue', array(
@@ -63,7 +69,7 @@ class CRM_Migration_DonationReceipt {
       'shipping_city' => 'shipping_city_262',
       'shipping_country' => 'shipping_country_263',
     );
-    $_logger = new CRM_Migration_Logger('donation_receipt');
+    $this->_logger = new CRM_Migration_Logger($entityName);
     try {
       $customFields = civicrm_api3('CustomField', 'get', array(
         'custom_group_id' => 'zwb_donation_receipt',
@@ -97,6 +103,9 @@ class CRM_Migration_DonationReceipt {
         'options' => array('limit' => 0),
       ));
       foreach ($customFields['values'] as $customField) {
+        if ($customField['name'] == 'receipt_id') {
+          $this->_receiptIdColumn = $customField['column_name'];
+        }
         if (isset($oldCustomFields[$customField['name']])) {
           $this->_itemColumns[$customField['name']] = array(
             'old' => $oldCustomFields[$customField['name']],
@@ -114,6 +123,7 @@ class CRM_Migration_DonationReceipt {
    * Method to migrate donation receipt
    *
    * @param $daoSource
+   * @return bool
    */
   public function migrateReceipt($daoSource) {
     $numericFields = array('issued_by', 'original_file');
@@ -133,11 +143,91 @@ class CRM_Migration_DonationReceipt {
         }
       }
     }
-    // todo check first if contact has been migrated
+    $contactCount = civicrm_api3('Contact', 'getcount', array('id' => $daoSource->entity_id));
+    if ($contactCount > 0) {
+      $insertQuery = 'INSERT INTO ' . $this->_donationReceiptTable . ' (entity_id, ' . implode(', ', $insertFields)
+        . ') VALUES(' . implode(', ', $insertValues) . ')';
+      CRM_Core_DAO::executeQuery($insertQuery, $insertParams);
+      return TRUE;
+    } else {
+      $this->_logger->logMessage('Error', 'Could not find contact '.$daoSource->entity_id.', donation receipt not migrated');
+      return FALSE;
+    }
+  }
 
-    $insertQuery = 'INSERT INTO '.$this->_donationReceiptTable.' (entity_id, '.implode(', ', $insertFields)
-      .') VALUES('.implode(', ', $insertValues).')';
+  /**
+   * Method to migrate donation receipt item
+   *
+   * @param $daoSource
+   * @return bool
+   */
+  public function migrateItem($daoSource) {
+    $query = 'SELECT new_contribution_id FROM forumzfd_contribution WHERE id = %1';
+    $newContributionId = CRM_Core_DAO::singleValueQuery($query, array(
+      1 => array($daoSource->entity_id, 'Integer'),
+    ));
 
-    CRM_Core_DAO::executeQuery($insertQuery, $insertParams);
+    if ($newContributionId) {
+      $receiptId = $this->findReceiptIdForItem($newContributionId);
+      $numericFields = array('issued_by', 'issued_in', 'financial_type_id',);
+      $decimalFields = array('total_amount', 'non_deductible_amount',);
+      $insertFields = array();
+      $insertValues = array('%1');
+      $insertIndex = 1;
+      if ($receiptId) {
+        $insertFields[$insertIndex] = $this->_receiptIdColumn;
+        $insertValues[$insertIndex] = '%'.$insertIndex;
+      }
+      $insertParams = array(1 => array($newContributionId, 'Integer'));
+      foreach ($this->_itemColumns as $columnName => $columnData) {
+        if (isset($daoSource->$columnData['old'])) {
+          $insertIndex++;
+          $insertFields[] = $columnData['new'];
+          $insertValues[] = '%'.$insertIndex;
+          if (in_array($columnName, $numericFields)) {
+            $insertParams[$insertIndex] = array($daoSource->$columnData['old'], 'Integer');
+          } elseif (in_array($columnName, $decimalFields)) {
+            $insertParams[$insertIndex] = array($daoSource->$columnData['old'], 'Decimal');
+          } else {
+            $insertParams[$insertIndex] = array(CRM_Core_DAO::escapeString($daoSource->$columnData['old']), 'String');
+          }
+        }
+      }
+      $insertQuery = 'INSERT INTO ' . $this->_itemTable . ' (entity_id, ' . implode(', ', $insertFields)
+        . ') VALUES(' . implode(', ', $insertValues) . ')';
+      CRM_Core_DAO::executeQuery($insertQuery, $insertParams);
+      return TRUE;
+    } else {
+      $this->_logger->logMessage('Error', 'Could not find contribution with id '.$daoSource->entity_id.', donation receipt item not migrated');
+      return FALSE;
+    }
+  }
+
+  /**
+   * Method to find the receipt id by checking the receive date of the item for the contact
+   *
+   * @param $contributionId
+   * @return bool|int
+   */
+  private function findReceiptIdForItem($contributionId) {
+  // first get contact_id of contribution
+    $contribution = civicrm_api3('Contribution', 'getsingle', array(
+      'id' => $contributionId,
+      'return' => array("contact_id", "receive_date"),
+    ));
+    // todo check H:i:s!!!!!!!
+    $receiveDate = date('Y-m-d H:i:s', strtotime($contribution['receive_date']));
+    $query = 'SELECT '.$this->_receiptIdColumn.' FROM '.$this->_donationReceiptTable.' WHERE '
+      .$this->_donationReceiptColumns['date_from']['new'].' <= %1 AND '
+      .$this->_donationReceiptColumns['date_to']['new'].' >= %1 AND entity_id = %2';
+    $receiptId = CRM_Core_DAO::singleValueQuery($query, array(
+      1 => array($receiveDate, 'String'),
+      2 => array($contributionId, 'Integer'),
+    ));
+    if ($receiptId) {
+      return $receiptId;
+    } else {
+      return FALSE;
+    }
   }
 }

@@ -37,11 +37,15 @@ class CRM_Migration_GroupContact extends CRM_Migration_ForumZfd {
    * @return array
    */
   public function setApiParams() {
-    $otherParams = array('status', 'location_id', 'email_id');
-    foreach ($otherParams as $otherParam) {
-      if (isset($this->_sourceData[$otherParam]) && !empty($this->_sourceData[$otherParam])) {
-        $this->_apiParams[$otherParam] = $this->_sourceData[$otherParam];
-      }
+    $this->_apiParams['contact_id'] = $this->_sourceData['contact_id'];
+    if (isset($this->_sourceData['status']) && !empty($this->_sourceData['status'])) {
+      $this->_apiParams['status'] = $this->_sourceData['status'];
+    }
+    if (isset($this->_sourceData['location_id']) && !empty($this->_sourceData['location_id'])) {
+      $this->_apiParams['location_id'] = $this->_sourceData['location_id'];
+    }
+    if (isset($this->_sourceData['email_id']) && !empty($this->_sourceData['status'])) {
+      $this->_apiParams['email_id'] = $this->_sourceData['email_id'];
     }
   }
 
