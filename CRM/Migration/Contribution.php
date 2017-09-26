@@ -44,7 +44,14 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
         .$this->_sourceData['id']);
       return FALSE;
     }
-
+    // contact should exist
+    $contactQuery = 'SELECT COUNT(*) FROM civicrm_contact WHERE id = %1';
+    $contactCount = CRM_Core_DAO::singleValueQuery($contactQuery, array(1 => array($this->_sourceData['contact_id'], 'Integer')));
+    if ($contactCount == 0) {
+      $this->_logger->logMessage('Error', 'Contact '.$this->_sourceData['contact_id'].' not found, contribution not migrated. Contribution id is '
+        .$this->_sourceData['id']);
+      return FALSE;
+    }
     // find contribution status
     try {
       $count = civicrm_api3('OptionValue', 'getcount', array(
@@ -63,32 +70,18 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
       return FALSE;
     }
     try {
-      $newFinancialTypeId = civicrm_api3('FinancialType', 'gevalue', array(
+      $newFinancialTypeId = civicrm_api3('FinancialType', 'getvalue', array(
         'name' => $this->_sourceData['financial_type_name'],
         'return' => 'id',
       ));
       if ($newFinancialTypeId) {
         $this->_sourceData['financial_type_id'] = $newFinancialTypeId;
       } else {
-        switch ($this->_sourceData['financial_type_name']) {
-          case 'Spende':
-            $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getUeberweisungFinancialTypeId();
-            break;
-          default:
-            $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getLastschriftFinancialTypeId();
-            break;
-        }
+        $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getSpendeFinancialTypeId();
       }
     }
     catch (CiviCRM_API3_Exception $ex) {
-      switch ($this->_sourceData['financial_type_name']) {
-        case 'Spende':
-          $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getUeberweisungFinancialTypeId();
-          break;
-        default:
-          $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getLastschriftFinancialTypeId();
-          break;
-      }
+      $this->_sourceData['financial_type_id'] = CRM_Migration_Config::singleton()->getSpendeFinancialTypeId();
     }
     return TRUE;
   }
@@ -106,7 +99,13 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
       'contribution_status_id' => $this->_sourceData['contribution_status_id'],
     );
     if (!empty($this->_sourceData['campaign_id'])) {
-      $this->_contributionData['campaign_id'] = $this->findNewCampaignId($this->_sourceData['campaign_id']);
+      $newCampaignId = $this->findNewCampaignId($this->_sourceData['campaign_id']);
+      if ($newCampaignId) {
+        $this->_contributionData['campaign_id'] = $newCampaignId;
+    } else {
+      $this->_logger->logMessage('Warning', 'No campaign with old id '.$this->_sourceData['campaign_id']
+        .' found, no campaign used for contribution '.$this->_sourceData['id']);
+      }
     }
     $replacePaymentInstrumentIds = array(
       6 => 3,
@@ -130,7 +129,6 @@ class CRM_Migration_Contribution extends CRM_Migration_ForumZfd {
         $this->useDefaultPaymentInstrument();
       }
     }
-
     if (!empty($this->_sourceData['check_number'])) {
       $this->_contributionData['check_number'] = $this->_sourceData['check_number'];
     }

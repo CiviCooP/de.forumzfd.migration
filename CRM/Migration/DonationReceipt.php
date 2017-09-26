@@ -13,9 +13,8 @@ class CRM_Migration_DonationReceipt {
   private $_donationReceiptTable = NULL;
   private $_itemTable = NULL;
   private $_logger = NULL;
-  private $_receiptIdColumn = NULL;
-  private $_dateFromColumn = NULL;
-  private $_dateToColumn = NULL;
+  private $_receiptReceiptIdColumn = NULL;
+  private $_itemReceiptIdColumn = NULL;
 
   /**
    * CRM_Migration_DonationReceipt constructor.
@@ -76,6 +75,9 @@ class CRM_Migration_DonationReceipt {
         'options' => array('limit' => 0),
       ));
       foreach ($customFields['values'] as $customField) {
+        if ($customField['name'] == 'receipt_id') {
+          $this->_receiptReceiptIdColumn = $customField['column_name'];
+        }
         if (isset($oldCustomFields[$customField['name']])) {
           $this->_donationReceiptColumns[$customField['name']] = array(
             'old' => $oldCustomFields[$customField['name']],
@@ -104,7 +106,7 @@ class CRM_Migration_DonationReceipt {
       ));
       foreach ($customFields['values'] as $customField) {
         if ($customField['name'] == 'receipt_id') {
-          $this->_receiptIdColumn = $customField['column_name'];
+          $this->_itemReceiptIdColumn = $customField['column_name'];
         }
         if (isset($oldCustomFields[$customField['name']])) {
           $this->_itemColumns[$customField['name']] = array(
@@ -166,19 +168,20 @@ class CRM_Migration_DonationReceipt {
     $newContributionId = CRM_Core_DAO::singleValueQuery($query, array(
       1 => array($daoSource->entity_id, 'Integer'),
     ));
-
     if ($newContributionId) {
-      $receiptId = $this->findReceiptIdForItem($newContributionId);
-      $numericFields = array('issued_by', 'issued_in', 'financial_type_id',);
-      $decimalFields = array('total_amount', 'non_deductible_amount',);
+      $insertParams[1] = array($newContributionId, 'Integer');
+      $insertIndex = 1;
       $insertFields = array();
       $insertValues = array('%1');
-      $insertIndex = 1;
+      $receiptId = $this->findReceiptIdForItem($newContributionId);
       if ($receiptId) {
-        $insertFields[$insertIndex] = $this->_receiptIdColumn;
+        $insertIndex++;
+        $insertFields[$insertIndex] = $this->_itemReceiptIdColumn;
         $insertValues[$insertIndex] = '%'.$insertIndex;
+        $insertParams[$insertIndex] = array($receiptId, 'Integer');
       }
-      $insertParams = array(1 => array($newContributionId, 'Integer'));
+      $numericFields = array('issued_by', 'issued_in', 'financial_type_id',);
+      $decimalFields = array('total_amount', 'non_deductible_amount',);
       foreach ($this->_itemColumns as $columnName => $columnData) {
         if (isset($daoSource->$columnData['old'])) {
           $insertIndex++;
@@ -187,7 +190,7 @@ class CRM_Migration_DonationReceipt {
           if (in_array($columnName, $numericFields)) {
             $insertParams[$insertIndex] = array($daoSource->$columnData['old'], 'Integer');
           } elseif (in_array($columnName, $decimalFields)) {
-            $insertParams[$insertIndex] = array($daoSource->$columnData['old'], 'Decimal');
+            $insertParams[$insertIndex] = array($daoSource->$columnData['old'], 'Money');
           } else {
             $insertParams[$insertIndex] = array(CRM_Core_DAO::escapeString($daoSource->$columnData['old']), 'String');
           }
@@ -215,14 +218,12 @@ class CRM_Migration_DonationReceipt {
       'id' => $contributionId,
       'return' => array("contact_id", "receive_date"),
     ));
-    // todo check H:i:s!!!!!!!
-    $receiveDate = date('Y-m-d H:i:s', strtotime($contribution['receive_date']));
-    $query = 'SELECT '.$this->_receiptIdColumn.' FROM '.$this->_donationReceiptTable.' WHERE '
-      .$this->_donationReceiptColumns['date_from']['new'].' <= %1 AND '
-      .$this->_donationReceiptColumns['date_to']['new'].' >= %1 AND entity_id = %2';
+    $receiveYear = date('Y', strtotime($contribution['receive_date']));
+    $query = 'SELECT '.$this->_receiptReceiptIdColumn.' FROM '.$this->_donationReceiptTable.' WHERE YEAR('
+      .$this->_donationReceiptColumns['date_from']['new'].') = %1 AND entity_id = %2';
     $receiptId = CRM_Core_DAO::singleValueQuery($query, array(
-      1 => array($receiveDate, 'String'),
-      2 => array($contributionId, 'Integer'),
+      1 => array($receiveYear, 'String'),
+      2 => array($contribution['contact_id'], 'Integer'),
     ));
     if ($receiptId) {
       return $receiptId;
