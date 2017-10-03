@@ -131,8 +131,12 @@ class CRM_Migration_DonationReceipt {
     $numericFields = array('issued_by', 'original_file');
     $insertFields = array();
     $insertValues = array('%1');
-    $insertIndex = 1;
     $insertParams = array(1 => array($daoSource->entity_id, 'Integer'));
+    // generate receipt id
+    $insertFields[] = $this->_receiptReceiptIdColumn;
+    $insertValues[] = '%2';
+    $insertParams[2] = array($this->generateReceiptId($daoSource), 'String');
+    $insertIndex = 2;
     foreach ($this->_donationReceiptColumns as $columnName => $columnData) {
       if (isset($daoSource->$columnData['old'])) {
         $insertIndex++;
@@ -158,6 +162,30 @@ class CRM_Migration_DonationReceipt {
   }
 
   /**
+   * Method to generate the receipt id
+   *
+   * @param $daoSource
+   * @return string
+   */
+  private function generateReceiptId($daoSource) {
+    // first get issue year
+    $issuedOnProperty = $this->_donationReceiptColumns['issued_on']['old'];
+    $issueDate = new DateTime($daoSource->$issuedOnProperty);
+    $issueYear = $issueDate->format('Y');
+    // now determine latest id within issue year
+    $query = 'SELECT MAX(CAST(SUBSTR('.$this->_receiptReceiptIdColumn.' , 15) AS UNSIGNED))
+      FROM '.$this->_donationReceiptTable.'  WHERE SUBSTRING('.$this->_receiptReceiptIdColumn.', 10, 5) LIKE %1';
+    $maxId = CRM_Core_DAO::singleValueQuery($query, array(
+      1 => array('%'.$issueYear."-%", 'String')));
+    if (empty($maxId)) {
+      $maxId = 1;
+    } else {
+      $maxId++;
+    }
+    return 'forumZFD-'.$issueYear.'-'.$maxId;
+  }
+
+  /**
    * Method to migrate donation receipt item
    *
    * @param $daoSource
@@ -178,7 +206,7 @@ class CRM_Migration_DonationReceipt {
         $insertIndex++;
         $insertFields[$insertIndex] = $this->_itemReceiptIdColumn;
         $insertValues[$insertIndex] = '%'.$insertIndex;
-        $insertParams[$insertIndex] = array($receiptId, 'Integer');
+        $insertParams[$insertIndex] = array($receiptId, 'String');
       }
       $numericFields = array('issued_by', 'issued_in', 'financial_type_id',);
       $decimalFields = array('total_amount', 'non_deductible_amount',);
@@ -210,7 +238,7 @@ class CRM_Migration_DonationReceipt {
    * Method to find the receipt id by checking the receive date of the item for the contact
    *
    * @param $contributionId
-   * @return bool|int
+   * @return bool|string
    */
   private function findReceiptIdForItem($contributionId) {
   // first get contact_id of contribution

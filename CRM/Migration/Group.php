@@ -87,6 +87,17 @@ class CRM_Migration_Group extends CRM_Migration_ForumZfd {
       $this->_logger->logMessage('Error', 'Source group '.$this->_sourceData['id'].' does not have a title, not migrated');
       return FALSE;
     }
+    // check if created_id exists, if not leave empty
+    if (isset($this->_sourceData['created_id']) && !empty($this->_sourceData['created_id'])) {
+      $createdCount = civicrm_api3('Contact', 'getcount', array('id' => $this->_sourceData['created_id']));
+      if ($createdCount != 1) {
+        unset($this->_sourceData['created_id']);
+      }
+    } else {
+      if (isset($this->_sourceData['created_id'])) {
+        unset($this->_sourceData['created_id']);
+      }
+    }
     // ignore group 1 (Administrators)
     if ($this->_sourceData['id'] == 1) {
       $this->_logger->logMessage('Warning', 'Source group '.$this->_sourceData['id'].' (Administrators) ignored');
