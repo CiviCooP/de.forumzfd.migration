@@ -32,18 +32,24 @@ function civicrm_api3_note_Migrate($params) {
   $logger = new CRM_Migration_Logger($entity);
   $daoSource = CRM_Core_DAO::executeQuery("SELECT * FROM forumzfd_note WHERE entity_table = '{$entityTable}' AND is_processed = 0 ORDER BY entity_id LIMIT 1000");
   while ($daoSource->fetch()) {
-    // update is_processed
-    $update = 'UPDATE forumzfd_note SET is_processed = %1 WHERE id = %2';
-    CRM_Core_DAO::executeQuery($update, array(
-      1 => array(1, 'Integer'),
-      2 => array($daoSource->id, 'Integer'),
-    ));
     $civiNote = new CRM_Migration_Note($entity, $daoSource, $logger);
     $newNote = $civiNote->migrate();
     if ($newNote == FALSE) {
       $logCount++;
+      $update = 'UPDATE forumzfd_note SET is_processed = %1 WHERE id = %2';
+      CRM_Core_DAO::executeQuery($update, array(
+        1 => array(1, 'Integer'),
+        2 => array($daoSource->id, 'Integer'),
+      ));
     } else {
       $createCount++;
+      // update is_processed
+      $update = 'UPDATE forumzfd_note SET is_processed = %1, new_note_id = %2 WHERE id = %3';
+      CRM_Core_DAO::executeQuery($update, array(
+        1 => array(1, 'Integer'),
+        2 => array($newNote['id'], 'Integer'),
+        3 => array($daoSource->id, 'Integer'),
+      ));
     }
   }
   if (empty($daoSource->N)) {

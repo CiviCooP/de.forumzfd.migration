@@ -98,6 +98,7 @@ abstract class CRM_Migration_ForumZfd {
       'email',
       'employer',
       'entity_tag',
+      'entity_file',
       'event',
       'group',
       'group_custom_data',
@@ -289,6 +290,17 @@ abstract class CRM_Migration_ForumZfd {
    */
   protected function findNewActivityId($sourceActivityId) {
     $query = 'SELECT new_activity_id FROM forumzfd_activity WHERE id = '.$sourceActivityId;
+    return CRM_Core_DAO::singleValueQuery($query);
+  }
+
+  /**
+   * Method to find the new note id with the old one
+   *
+   * @param $sourceNoteId
+   * @return null|string
+   */
+  protected function findNewNoteId($sourceNoteId) {
+    $query = 'SELECT new_note_id FROM forumzfd_note WHERE id = '.$sourceNoteId;
     return CRM_Core_DAO::singleValueQuery($query);
   }
 
