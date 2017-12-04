@@ -109,4 +109,37 @@ class CRM_Migration_Event extends CRM_Migration_ForumZfd {
     }
     return TRUE;
   }
+
+  /**
+   * Method to add event custom data
+   */
+  public static function addCustomData() {
+    // specific logger
+    $logger = new CRM_Migration_Logger('event_custom_data');
+    // retrieve all custom tables for participant
+    $query = "SELECT * FROM forumzfd_custom_group WHERE extends = %1";
+    $dao = CRM_Core_DAO::executeQuery($query, array(
+      1 => array('Event', 'String'),
+    ));
+    while ($dao->fetch()) {
+      $event = new CRM_Migration_Event('event_custom_data', $dao, $logger);
+      $event->createCustomGroupIfNotExists($event->_sourceData);
+      // get forumzfd_value table name using the original custom table name
+      $migrateTableName = $event->generateMigrateTableName($event->_sourceData['table_name']);
+      $daoCustomData = $event->getCustomDataDao($migrateTableName);
+      $columns = $event->getCustomDataColumns($daoCustomData, $event->_sourceData['table_name']);
+      while ($daoCustomData->fetch()) {
+        // find new event id
+        $newEventId = $event->findNewPatricipantId($daoCustomData->entity_id);
+        if ($newEventId) {
+          $dao->entity_id = $newEventId;
+          $event->insertCustomData($daoCustomData, $event->_sourceData['table_name'], $columns);
+        } else {
+          $logger->logMessage('Error', 'Could not find or create a new event for '.$daoCustomData->entity_id.' and table name '
+            .$event->_sourceData['table_name'].', custom data not migrated.');
+        }
+      }
+    }
+  }
+
 }

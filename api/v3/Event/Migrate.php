@@ -34,6 +34,7 @@ function civicrm_api3_event_Migrate($params) {
       $createCount++;
     }
   }
+  CRM_Migration_Event::addCustomData();
   $returnValues[] = $createCount.' events migrated to CiviCRM, '.$logCount.' with logged errors that were not migrated';
   return civicrm_api3_create_success($returnValues, $params, 'Event', 'Migrate');
 }
