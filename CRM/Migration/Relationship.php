@@ -99,6 +99,19 @@ class CRM_Migration_Relationship extends CRM_Migration_ForumZfd {
       $this->_logger->logMessage('Error', 'Relationship has no contact_id_b, relationship not migrated. Source data is '.implode(';', $this->_sourceData));
       return FALSE;
     }
+    $query = 'SELECT COUNT(*) FROM civicrm_contact WHERE id = '.$this->_sourceData['contact_id_a'];
+    $countA = CRM_Core_DAO::singleValueQuery($query);
+    if ($countA == 0) {
+      $this->_logger->logMessage('Warning', 'No contact found for contact_id_a '.$this->_sourceData['contact_id_a'].', relationship not migrated.');
+      return FALSE;
+    }
+    $query = 'SELECT COUNT(*) FROM civicrm_contact WHERE id = '.$this->_sourceData['contact_id_b'];
+    $countB = CRM_Core_DAO::singleValueQuery($query);
+    if ($countB == 0) {
+      $this->_logger->logMessage('Warning', 'No contact found for contact_id_b '.$this->_sourceData['contact_id_b'].', relationship not migrated.');
+      return FALSE;
+    }
+
     // some relationship types are to be ignored
     $validRelationshipTypeIds = array(1, 2 ,3 ,4 ,5, 6, 7, 9, 20, 22);
     if (!in_array($this->_sourceData['relationship_type_id'], $validRelationshipTypeIds)) {
@@ -106,23 +119,5 @@ class CRM_Migration_Relationship extends CRM_Migration_ForumZfd {
       return FALSE;
     }
     return TRUE;
-  }
-
-  /**
-   * Method to find the new relationship type id
-   *
-   * return int|bool
-   */
-  private function findRelationshipTypeIdWithNames() {
-    try {
-      return civicrm_api3('RelationshipType', 'getvalue', array(
-        'name_a_b' => $this->_sourceData['name_a_b'],
-        'name_b_a' => $this->_sourceData['name_b_a'],
-        'return' => 'id',
-      ));
-    }
-    catch (CiviCRM_API3_Exception $ex) {
-    }
-    return FALSE;
   }
 }
