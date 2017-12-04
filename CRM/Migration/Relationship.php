@@ -54,38 +54,34 @@ class CRM_Migration_Relationship extends CRM_Migration_ForumZfd {
         unset($apiParams[$key]);
       }
     }
-    // replace employee relationship type id
-    if ($apiParams['relationship_type_id'] == 4) {
-      $apiParams['relationship_type_id'] = 5;
+    // set new relationship type as configured on live
+    switch ($apiParams['relationship_type_id']) {
+      case 3:
+        $apiParams['relationship_type_id'] = 4;
+        break;
+      case 4:
+        $apiParams['relationship_type_id'] = 5;
+        break;
+      case 5:
+        $apiParams['relationship_type_id'] = 6;
+        break;
+      case 6:
+        $apiParams['relationship_type_id'] = 7;
+        break;
+      case 7:
+        $apiParams['relationship_type_id'] = 8;
+        break;
+      case 9:
+        $apiParams['relationship_type_id'] = 3;
+        break;
+      case 20:
+        $apiParams['relationship_type_id'] = 17;
+        break;
+      case 22:
+        $apiParams['relationship_type_id'] = 18;
+        break;
     }
     return $apiParams;
-  }
-
-  /**
-   * Method to check if relationship type is valid
-   *
-   * @return bool
-   * @access private
-   */
-
-  private function validRelationshipType() {
-    try {
-      $count = civicrm_api3('RelationshipType', 'getcount', array(
-        'id' => $this->_sourceData['relationship_type_id']));
-      if ($count != 1) {
-        $this->_logger->logMessage('Warning', 'Relationship with contact_id_a '.$this->_sourceData['contact_id_a']
-          .' and contact_id_b '.$this->_sourceData['contact_id_b']. ' does not have a valid relationship_type_id ('
-          .$count. ' of '.$this->_sourceData['relationship_type_id'].'found), not migrated');
-        return FALSE;
-      }
-    } catch (CiviCRM_API3_Exception $ex) {
-      $this->_logger->logMessage('Error', 'Error retrieving relationship_type_id from CiviCRM for relationship with contact_id_a '
-        .$this->_sourceData['contact_id_a'].' and contact_id_b '.$this->_sourceData['contact_id_b']. ' and 
-        relationship_type_id' . $this->_sourceData['relationship_type_id'] . ', not migrated. Error from API 
-        RelationshipType getcount : ' . $ex->getMessage());
-      return FALSE;
-    }
-    return TRUE;
   }
 
   /**
@@ -103,18 +99,10 @@ class CRM_Migration_Relationship extends CRM_Migration_ForumZfd {
       $this->_logger->logMessage('Error', 'Relationship has no contact_id_b, relationship not migrated. Source data is '.implode(';', $this->_sourceData));
       return FALSE;
     }
-
-    // find new relationship type id with name_a_b and name_b_a from source data
-    $newRelationshipTypeId = $this->findRelationshipTypeIdWithNames();
-    if ($newRelationshipTypeId) {
-      $this->_sourceData['relationship_type_id'] = $newRelationshipTypeId;
-    } else {
-      $this->_logger->logMessage('Error', 'Could not find a relationship type with name_a_b '.$this->_sourceData['name_a_b']
-        .' and name_b_a '.$this->_sourceData['name_b_a'].', relationship not migrated.');
-      return FALSE;
-    }
-
-    if (!$this->validRelationshipType()) {
+    // some relationship types are to be ignored
+    $validRelationshipTypeIds = array(1, 2 ,3 ,4 ,5, 6, 7, 9, 20, 22);
+    if (!in_array($this->_sourceData['relationship_type_id'], $validRelationshipTypeIds)) {
+      $this->_logger->logMessage('Warning', 'Relationship type id '.$this->_sourceData['relationship_type_id'].' is to be ignored, relationship not migrated.');
       return FALSE;
     }
     return TRUE;
