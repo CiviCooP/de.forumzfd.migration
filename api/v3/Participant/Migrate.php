@@ -41,8 +41,6 @@ function civicrm_api3_participant_Migrate($params) {
     }
   }
   if (empty($daoSource->N)) {
-    // add custom data at the end
-    CRM_Migration_Participant::addCustomData();
     $returnValues[] = 'No more participants to migrate';
   } else {
     $returnValues[] = $createCount.' participants migrated to CiviCRM, '.$logCount.' with logged errors that were not migrated';

@@ -40,8 +40,6 @@ function civicrm_api3_activity_Migrate($params) {
     }
   }
   if (empty($daoSource->N)) {
-    // add custom data at the end
-    CRM_Migration_Activity::addCustomData();
     $returnValues[] = 'No more activities to migrate';
   } else {
     $returnValues[] = $createCount.' activities migrated to CiviCRM, '.$logCount.' with logged errors that were not migrated';
