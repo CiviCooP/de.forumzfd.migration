@@ -196,7 +196,7 @@ function _createQueryAndParams($civiTable, $daoSource, &$insertQuery, &$insertPa
     $insertIndex++;
     $insertFields[] = 'wie_haben_sie_von_unseren_angebo_469';
     $insertValues[] = '%'.$insertIndex;
-    $insertParams[$insertIndex] = array($daoSource->wie_haben_sie_von_unseren_angebo_469, 'Integer');
+    $insertParams[$insertIndex] = array($daoSource->wie_haben_sie_von_unseren_angebo_469, 'String');
   }
   $insertQuery = 'INSERT INTO ' . $civiTable . ' ('.implode(', ', $insertFields)
     .') VALUES('.implode(', ',$insertValues).')';
