@@ -294,12 +294,6 @@ function _createQueryAndParams($civiTable, $daoSource, &$insertQuery, &$insertPa
     $insertValues[] = '%'.$insertIndex;
     $insertParams[$insertIndex] = array($daoSource->muttersprache_402, 'String');
   }
-  if (!empty($daoSource->muttersprache_402)) {
-    $insertIndex++;
-    $insertFields[] = 'muttersprache_402';
-    $insertValues[] = '%'.$insertIndex;
-    $insertParams[$insertIndex] = array($daoSource->muttersprache_402, 'String');
-  }
   if (!empty($daoSource->zweite_muttersprache_403)) {
     $insertIndex++;
     $insertFields[] = 'zweite_muttersprache_403';
